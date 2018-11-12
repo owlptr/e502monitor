@@ -11,9 +11,11 @@
 
 #define TCP_CONNECTION_TOUT 5000
 
-
 #define READ_CONFIG_SUCCESS 1 
 #define READ_CONFIG_ERROR 0
+
+#define CFG_ERR 1 
+#define CFG_OK 0
 
 typedef unsigned int uint;
 
@@ -345,8 +347,6 @@ void print_module_config(module_config *mc)
     
 }
 
-#define CFG_ERR 1 
-
 uint32_t configure_module(t_x502_hnd *hnd,
                           module_config *mc)
 {
@@ -360,9 +360,36 @@ uint32_t configure_module(t_x502_hnd *hnd,
                                 i,
                                 mc->channel_numbers[i],
                                 mc->channel_modes[i],
-                                mc->channel_ranges,
+                                mc->channel_ranges[i],
                                 0 );
+
+        if(err != X502_ERR_OK){ return CFG_ERR; }
     }
+
+    double adc_freq = mc->adc_freq;
+    double din_freq = mc->din_freq;
+    double frame_freq = mc->adc_freq/mc->channel_count;
+
+    err = X502_SetAdcFreq(hnd, &adc_freq, &frame_freq);
+    if(err != X502_ERR_OK){ return CFG_ERR; }
+
+    err = X502_SetDinFreq(hnd, &din_freq);
+    if(err != X502_ERR_OK){ return CFG_ERR; }
+
+    //what we realy set...
+    printf("\nУстановлены частоты:\n"
+           " Частота сбора АЦП\t\t:%0.0f\n"
+           " Частота на лог. канал\t\t:%0.0f\n"
+           " Частота цифрового ввода\t:%0.0f\n",
+           adc_freq, frame_freq, din_freq);
+
+    err = X502_Configure(hnd, 0);
+    if(err != X502_ERR_OK){ return CFG_ERR; }
+
+    err = X502_StreamsEnable(hnd, X502_STREAM_ADC);
+    if(err != X502_ERR_OK){ return CFG_ERR; }
+
+    return CFG_OK;
 
 }
 
@@ -461,7 +488,7 @@ int main(int argc, char** argv)
     
     print_module_config(mc);
 
-    if( configure_module(hnd, mc) == CFG_ERR)
+    if( configure_module(hnd, mc) != CFG_OK )
     {
         printf("\nОшибка при конфигурировании модуля! Завершение.\n");
 
@@ -481,7 +508,66 @@ int main(int argc, char** argv)
     free(mc->channel_ranges);
     free(mc->channel_modes);
 
+    int read_time_out   = mc->read_timeout;
+    int read_block_size = mc->read_block_size;
+    
     free(mc);
+    
+    uint32_t err = X502_StreamsStart(hnd);
+    if(err != X502_ERR_OK)
+    {
+        fprintf(stderr,
+                "Ошибка запуска сбора данных: %s!\n",
+                X502_GetErrorString(err)
+                );
+        X502_Close(hnd);
+        X502_Free(hnd);
+
+        return 0;
+    }
+
+    printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
+    fflush(stdout);
+
+    uint32_t rcv_buf[read_block_size];
+    double   adc_data[read_block_size];
+    uint32_t din_data[read_block_size];
+
+    int32_t  rcv_size;
+    uint32_t adc_size;
+    uint32_t din_size;
+    uint32_t first_lch;
+
+
+    while(!g_stop)
+    {
+        rcv_size = X502_Recv(hnd, rcv_buf, read_block_size, read_time_out);
+
+        if(rcv_size <= 0)
+        {
+            fprintf(stderr, "Ошибка приема данных: %s\n", X502_GetErrorString(err));
+            g_stop = 1;
+            continue;
+        }
+
+        X502_GetNextExpectedLchNum(hnd, &first_lch);
+
+        adc_size = sizeof(adc_data)/sizeof(adc_data[0]);
+        din_size = sizeof(din_data)/sizeof(din_data[0]);
+
+        err = X502_ProcessData(hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
+                               adc_data, &adc_size, din_data, &din_size);
+
+        if(err != X502_ERR_OK)
+        {
+            fprintf(stderr,
+                    "Ошибка обработки данных: %s\n",
+                    X502_GetErrorString(err)
+                   );
+            g_stop = 1;
+            continue;
+        }
+    }
 
     X502_Close(hnd);
     X502_Free(hnd);
