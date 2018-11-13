@@ -22,6 +22,7 @@
 
 typedef unsigned int uint;
 
+// The structure that stores the startup parameters
 typedef struct {
         uint channel_count;
         double adc_freq;
@@ -34,21 +35,24 @@ typedef struct {
     } module_config;
 
 
-// Global variable for the correct 
-// completion of data collection
-int g_stop = 0;
-
-// Signal of completion
-void abort_handler(int sig) 
-{
-    g_stop = 1;
-}
+// TODO: delete this!-------------------//
+                                        //
+// Global variable for the correct      //
+// completion of data collection        //
+int g_stop = 0;                         //
+                                        //
+// Signal of completion                 //
+void abort_handler(int sig)             //
+{                                       //
+    g_stop = 1;                         //
+}                                       //
+//--------------------------------------//
 
 /*
     Get all Lcard E-502 devices connected via USB 
     or Ethernet interfaces
 
-    Return number of found debices 
+    Return number of found devices 
 */
 uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
                         uint32_t *ip_addr_list,
@@ -61,7 +65,7 @@ uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
 
     t_x502_devrec *rec_list = NULL;
 
-    // getting count of connected devices via USB interface
+    // get count of connected devices via USB interface
     E502_UsbGetDevRecordsList(NULL, 0, 0, &usb_devcnt);
 
     if(usb_devcnt + ip_cnt == 0){ return 0; }
