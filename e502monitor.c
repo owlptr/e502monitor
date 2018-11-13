@@ -17,17 +17,20 @@
 #define CFG_ERR 1 
 #define CFG_OK 0
 
+#define WRITE_HEADERS_ERR 1
+#define WRITE_HEADERS_OK 0
+
 typedef unsigned int uint;
 
 typedef struct {
         uint channel_count;
         double adc_freq;
-        double din_freq;
         uint read_block_size;
         uint read_timeout;
         uint *channel_numbers;
         uint *channel_modes;
         uint *channel_ranges;
+        char *bin_dir;
     } module_config;
 
 
@@ -36,7 +39,8 @@ typedef struct {
 int g_stop = 0;
 
 // Signal of completion
-void abort_handler(int sig) {
+void abort_handler(int sig) 
+{
     g_stop = 1;
 }
 
@@ -241,14 +245,6 @@ int create_config(module_config *mc)
         return READ_CONFIG_ERROR;
     }
     
-    err = config_lookup_float(&cfg, "din_freq", &(mc->din_freq));
-    if(err == CONFIG_FALSE)
-    { 
-        printf("Ошибка конфигурационного файла:\tчастота синхронного входа не задана!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
-    }
-    
     err = config_lookup_int(&cfg, "read_block_size", &(mc->read_block_size));
     if(err == CONFIG_FALSE)
     { 
@@ -319,8 +315,7 @@ void print_module_config(module_config *mc)
 {
     printf("\nЗагружена следующая конфигурация модуля:\n");
     printf(" Количество используемых логических каналов\t\t:%d\n", mc->channel_count);
-    printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", mc->adc_freq);
-    printf(" Частота синхронного ввода в Гц\t\t\t\t:%f\n", mc->din_freq);
+    printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", mc->adc_freq)
     printf(" Количество отсчетов, считываемых за блок\t\t:%d\n", mc->read_block_size);
     printf(" Таймаут перед считываением блока (мс)\t\t\t:%d\n", mc->read_timeout);
     
@@ -344,7 +339,6 @@ void print_module_config(module_config *mc)
         printf("%d ", mc->channel_ranges[i]);
     }
     printf("]\n");
-    
 }
 
 uint32_t configure_module(t_x502_hnd *hnd,
@@ -367,21 +361,16 @@ uint32_t configure_module(t_x502_hnd *hnd,
     }
 
     double adc_freq = mc->adc_freq;
-    double din_freq = mc->din_freq;
     double frame_freq = mc->adc_freq/mc->channel_count;
 
     err = X502_SetAdcFreq(hnd, &adc_freq, &frame_freq);
     if(err != X502_ERR_OK){ return CFG_ERR; }
 
-    err = X502_SetDinFreq(hnd, &din_freq);
-    if(err != X502_ERR_OK){ return CFG_ERR; }
-
     //what we realy set...
     printf("\nУстановлены частоты:\n"
            " Частота сбора АЦП\t\t:%0.0f\n"
-           " Частота на лог. канал\t\t:%0.0f\n"
-           " Частота цифрового ввода\t:%0.0f\n",
-           adc_freq, frame_freq, din_freq);
+           " Частота на лог. канал\t\t:%0.0f\n",
+           adc_freq, frame_freq);
 
     err = X502_Configure(hnd, 0);
     if(err != X502_ERR_OK){ return CFG_ERR; }
@@ -391,6 +380,71 @@ uint32_t configure_module(t_x502_hnd *hnd,
 
     return CFG_OK;
 
+}
+
+uint32_t write_file_headers(FILE** files, module_config *mc)
+{
+    // try open files for writing
+    for(int i = 0; i<mc->channel_count; i++)
+    {
+        char c[2];
+        sprintf(c, "%d", i);
+        char file_name[8] = "data"; 
+        strcat(file_name, c);
+
+        files[i] = fopen(file_name, "wb");
+
+        if(files[i] == NULL){ 
+            for(int j = 0; j < mc->channel_count; j++)
+            {
+                if(files[j] != NULL){ fclose(files[j]); }
+            }
+            return WRITE_HEADERS_ERR;
+        }
+
+        // fwrite( &(mc->channel_numbers[i]), sizeof(uint), 1, files[i] );
+        // fwrite( &(mc->adc_freq), sizeof(double), 1, files[i] );
+        // fwrite( &(mc->channel_modes[i]), sizeof(uint), 1, files[i] );
+        // fwrite( &(mc->channel_ranges[i]), sizeof(uint), 1, files[i] );
+
+        // fclose(files[i]);
+
+        // files[i] = fopen(file_name, "rb");
+
+        // uint cn, cm, cr;
+        // double af, df;
+
+        // fread(&cn, sizeof(uint), 1, files[i]);
+        // fread(&af, sizeof(double), 1, files[i]);
+        // fread(&df, sizeof(double), 1, files[i]);
+        // fread(&cm, sizeof(uint), 1, files[i]);
+        // fread(&cr, sizeof(uint), 1, files[i]);
+
+        // printf("Cannel numbers = %d\n", cn);
+        // printf("ADC FREQ = %f\n", af);
+        // printf("DIN FREQ = %f\n", df);
+        // printf("Channel modes = %d\n", cm);
+        // printf("Channel ranges = %d\n", cr);
+
+        // fclose(files[i]);
+    }
+
+    return WRITE_HEADERS_OK;
+}
+
+void write_data_in_file( FILE *file,
+                         double *data,
+                         uint channel_count )
+{
+
+}
+
+void close_file_streams( FILE **files, int size )
+{
+    for(int i = 0; i<size; i++)
+    {
+        fclose(files[i]);
+    }
 }
 
 int main(int argc, char** argv) 
@@ -503,15 +557,15 @@ int main(int argc, char** argv)
 
         return 0;
     }
+    uint read_time_out   = mc->read_timeout;
+    uint read_block_size = mc->read_block_size;
+    uint channel_count   = mc->channel_count;
 
-    free(mc->channel_numbers);
-    free(mc->channel_ranges);
-    free(mc->channel_modes);
+    // free(mc->channel_numbers);
+    // free(mc->channel_ranges);
+    // free(mc->channel_modes);
 
-    int read_time_out   = mc->read_timeout;
-    int read_block_size = mc->read_block_size;
-    
-    free(mc);
+    // free(mc);
     
     uint32_t err = X502_StreamsStart(hnd);
     if(err != X502_ERR_OK)
@@ -529,16 +583,45 @@ int main(int argc, char** argv)
     printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
     fflush(stdout);
 
-    uint32_t rcv_buf[read_block_size];
-    double   adc_data[read_block_size];
-    uint32_t din_data[read_block_size];
-
+    uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*read_block_size);
+    double*   adc_data = (double*)  malloc(sizeof(double)*read_block_size);
+    uint32_t* din_data = (uint32_t*)malloc(sizeof(uint32_t)*read_block_size);
+    
     int32_t  rcv_size;
     uint32_t adc_size;
     uint32_t din_size;
     uint32_t first_lch;
 
 
+
+    FILE **out_files = (FILE*)malloc(sizeof(FILE*)*channel_count);
+
+    if( write_file_headers(out_files, mc) != WRITE_HEADERS_OK )
+    {
+        printf("Ошибка записи заголовков выходных файлов! Завершение.\n");
+
+        free(mc->channel_numbers);
+        free(mc->channel_ranges);
+        free(mc->channel_modes);
+
+        free(mc);
+
+        free(rcv_buf);
+        free(adc_data);
+        free(din_data);
+
+        free(out_files);
+
+        X502_Close(hnd);
+        X502_Free(hnd);
+
+        return 0; // exit from program
+    }
+
+    int lch_count;
+    int value_count;
+
+    int kostil_counter = 0;
     while(!g_stop)
     {
         rcv_size = X502_Recv(hnd, rcv_buf, read_block_size, read_time_out);
@@ -552,8 +635,12 @@ int main(int argc, char** argv)
 
         X502_GetNextExpectedLchNum(hnd, &first_lch);
 
-        adc_size = sizeof(adc_data)/sizeof(adc_data[0]);
-        din_size = sizeof(din_data)/sizeof(din_data[0]);
+        // adc_size = sizeof(adc_data)/sizeof(adc_data[0]);
+        // din_size = sizeof(din_data)/sizeof(din_data[0]);
+        
+        // is it right?
+        adc_size = sizeof(double)*read_block_size;
+        din_size = sizeof(uint32_t)*read_block_size;
 
         err = X502_ProcessData(hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                adc_data, &adc_size, din_data, &din_size);
@@ -567,7 +654,45 @@ int main(int argc, char** argv)
             g_stop = 1;
             continue;
         }
+
+        // printf("Adc_size = %d\n", adc_size);
+        for(value_count = 0; value_count < adc_size; value_count += channel_count)
+        {
+            
+            for(lch_count = 0; lch_count < channel_count; lch_count++)
+            {   
+                fwrite(&adc_data[value_count + lch_count],
+                       sizeof(double),
+                       1,out_files[lch_count] 
+                      );
+            }
+        }
+        kostil_counter++;
+
+        // if(kostil_counter > 1) g_stop = 1;
+        g_stop = 1;
     }
+
+    if( X502_StreamsStop(hnd) != X502_ERR_OK)
+    {
+        fprintf(stderr, "Ошибка останова сбора данных!\n");
+    } else 
+    {
+        printf("Сбор данных остановлен успешно\n");
+    }
+
+    close_file_streams(out_files, channel_count);
+    free(out_files);
+
+    free(mc->channel_numbers);
+    free(mc->channel_ranges);
+    free(mc->channel_modes);
+
+    free(mc);
+
+    free(rcv_buf);
+    free(adc_data);
+    free(din_data);
 
     X502_Close(hnd);
     X502_Free(hnd);
