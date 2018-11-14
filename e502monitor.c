@@ -6,33 +6,36 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #include <libconfig.h>
 
+#define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
+
 #define TCP_CONNECTION_TOUT 5000
 
-#define READ_CONFIG_SUCCESS 1 
-#define READ_CONFIG_ERROR 0
+#define READ_CONFIG_SUCCESS 0 
+#define READ_CONFIG_ERROR -1
 
-#define CFG_ERR 1 
+#define CFG_ERR -2 
 #define CFG_OK 0
 
-#define WRITE_HEADERS_ERR 1
+#define WRITE_HEADERS_ERR -3
 #define WRITE_HEADERS_OK 0
-
-typedef unsigned int uint;
 
 // The structure that stores the startup parameters
 typedef struct {
-        uint channel_count;
-        double adc_freq;
-        uint read_block_size;
-        uint read_timeout;
-        uint *channel_numbers;
-        uint *channel_modes;
-        uint *channel_ranges;
-        char *bin_dir;
-    } module_config;
+        int channel_count;      // Count of use logical chnnels
+        double adc_freq;        // Frequency descritization
+        int read_block_size;    // The size of the data block 
+                                //  that is read at once from the ADC
+        
+        int read_timeout;       // Timeout for receiving data in ms.
+        int *channel_numbers;   // Numbers of using logical channels
+        int *channel_modes;     // Operation modes for channels
+        int *channel_ranges;    // Channel measurement range
+        char *bin_dir;          // Directory of output bin files
+    } monitor_config;
 
 
 // TODO: delete this!-------------------//
@@ -76,7 +79,7 @@ uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
     // if memory wasn't allocated
     if(rec_list == NULL){ return 0; }
 
-    if (usb_devcnt!=0) 
+    if (usb_devcnt != 0) 
     {
         int32_t res = E502_UsbGetDevRecordsList(&rec_list[fnd_devcnt],
                                                 usb_devcnt, 
@@ -113,22 +116,22 @@ uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
 }
 
 /*
-    Create connecting for selecting device.
+    Create connecting for selecting device
 
     Return special handler (t_x502_hnd)
 */
-t_x502_hnd open_device(t_x502_devrec *devrec_list,
-                        uint32_t device_id)
+t_x502_hnd open_device( t_x502_devrec *devrec_list,
+                        uint32_t device_id )
 {
     t_x502_hnd hnd = X502_Create();
 
-    if (hnd==NULL) 
+    if (hnd == NULL) 
     {
         fprintf(stderr, "Ошибка создания описателя модуля!");
         return hnd;
     }
     
-    /* устанавливаем связь с модулем по записи */
+    /* create connection with module */
     int32_t err = X502_OpenByDevRecord(hnd, &devrec_list[device_id]);
     if (err != X502_ERR_OK) 
     {
@@ -212,12 +215,13 @@ uint32_t print_info_about_module(t_x502_hnd *hnd)
 }
 
 /*
-    Create config for module. If there are mistakes in
-    comand line arguments read e502monitor.cfg
+    Create config for module. 
+
+    mc - pointer to config structure 
 
     Return error index
 */
-int create_config(module_config *mc)
+int create_config(monitor_config *mc)
 {
     config_t cfg; 
 
@@ -273,7 +277,7 @@ int create_config(module_config *mc)
         return READ_CONFIG_ERROR;
     }
 
-    mc->channel_numbers = (uint*)malloc(sizeof(uint)*mc->channel_count);
+    mc->channel_numbers = (int*)malloc(sizeof(int)*mc->channel_count);
 
     for(int i = 0; i < mc->channel_count; i++)
     {
@@ -288,7 +292,7 @@ int create_config(module_config *mc)
         return READ_CONFIG_ERROR;
     }
 
-    mc->channel_modes = (uint*)malloc(sizeof(uint)*mc->channel_count);
+    mc->channel_modes = (int*)malloc(sizeof(int)*mc->channel_count);
     
     for(int i = 0; i < mc->channel_count; i++)
     {
@@ -303,7 +307,7 @@ int create_config(module_config *mc)
         return READ_CONFIG_ERROR;
     }
 
-    mc->channel_ranges = (uint*)malloc(sizeof(uint)*mc->channel_count);
+    mc->channel_ranges = (int*)malloc(sizeof(int)*mc->channel_count);
 
     for(int i = 0; i < mc->channel_count; i++)
     {
@@ -315,11 +319,11 @@ int create_config(module_config *mc)
     return READ_CONFIG_SUCCESS;
 }
 
-void print_module_config(module_config *mc)
+void print_config(monitor_config *mc)
 {
     printf("\nЗагружена следующая конфигурация модуля:\n");
     printf(" Количество используемых логических каналов\t\t:%d\n", mc->channel_count);
-    printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", mc->adc_freq)
+    printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", mc->adc_freq);
     printf(" Количество отсчетов, считываемых за блок\t\t:%d\n", mc->read_block_size);
     printf(" Таймаут перед считываением блока (мс)\t\t\t:%d\n", mc->read_timeout);
     
@@ -346,7 +350,7 @@ void print_module_config(module_config *mc)
 }
 
 uint32_t configure_module(t_x502_hnd *hnd,
-                          module_config *mc)
+                          monitor_config *mc)
 {
     int32_t err = X502_SetLChannelCount(hnd, mc->channel_count);
 
@@ -386,7 +390,7 @@ uint32_t configure_module(t_x502_hnd *hnd,
 
 }
 
-uint32_t write_file_headers(FILE** files, module_config *mc)
+uint32_t write_file_headers(FILE** files, monitor_config *mc)
 {
     // try open files for writing
     for(int i = 0; i<mc->channel_count; i++)
@@ -523,7 +527,7 @@ int main(int argc, char** argv)
 
     print_info_about_module(hnd);
 
-    module_config *mc = (module_config*)malloc(sizeof(module_config));
+    monitor_config *mc = (monitor_config*)malloc(sizeof(monitor_config));
     mc->channel_numbers = NULL;
     mc->channel_modes   = NULL;
     mc->channel_ranges  = NULL;
@@ -544,7 +548,7 @@ int main(int argc, char** argv)
         return 0;
     }
     
-    print_module_config(mc);
+    print_config(mc);
 
     if( configure_module(hnd, mc) != CFG_OK )
     {
@@ -561,9 +565,10 @@ int main(int argc, char** argv)
 
         return 0;
     }
-    uint read_time_out   = mc->read_timeout;
-    uint read_block_size = mc->read_block_size;
-    uint channel_count   = mc->channel_count;
+    int read_time_out   = mc->read_timeout;
+    int read_block_size = mc->read_block_size;
+    int channel_count   = mc->channel_count;
+    double freq         = mc->adc_freq;
 
     // free(mc->channel_numbers);
     // free(mc->channel_ranges);
@@ -588,12 +593,9 @@ int main(int argc, char** argv)
     fflush(stdout);
 
     uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*read_block_size);
-    double*   adc_data = (double*)  malloc(sizeof(double)*read_block_size);
-    uint32_t* din_data = (uint32_t*)malloc(sizeof(uint32_t)*read_block_size);
     
     int32_t  rcv_size;
     uint32_t adc_size;
-    uint32_t din_size;
     uint32_t first_lch;
 
 
@@ -622,12 +624,25 @@ int main(int argc, char** argv)
         return 0; // exit from program
     }
 
-    int lch_count;
-    int value_count;
+    /* 
+        Two buffers for reading data. While one of them is filled
+        data from other writing to binary files.
+    */
+    double *data_buffer0 = (double*)malloc(sizeof(double)*read_block_size);
+    double *data_buffer1 = (double*)malloc(sizeof(double)*read_block_size);
 
-    int kostil_counter = 0;
+    int buffer_index = 0; // index of current buffer
+    
+    // pointer to current buffer 
+    // equals data_buffer1 or data_buffer2
+    double *data = data_buffer1;
+
+
     while(!g_stop)
     {
+        // switch between buffers
+        data = (buffer_index == 0) ? data_buffer0 : data_buffer1;
+
         rcv_size = X502_Recv(hnd, rcv_buf, read_block_size, read_time_out);
 
         if(rcv_size <= 0)
@@ -639,15 +654,11 @@ int main(int argc, char** argv)
 
         X502_GetNextExpectedLchNum(hnd, &first_lch);
 
-        // adc_size = sizeof(adc_data)/sizeof(adc_data[0]);
-        // din_size = sizeof(din_data)/sizeof(din_data[0]);
-        
         // is it right?
         adc_size = sizeof(double)*read_block_size;
-        din_size = sizeof(uint32_t)*read_block_size;
 
         err = X502_ProcessData(hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
-                               adc_data, &adc_size, din_data, &din_size);
+                               data, &adc_size, NULL, NULL);
 
         if(err != X502_ERR_OK)
         {
@@ -659,21 +670,21 @@ int main(int argc, char** argv)
             continue;
         }
 
-        // printf("Adc_size = %d\n", adc_size);
-        for(value_count = 0; value_count < adc_size; value_count += channel_count)
-        {
-            
-            for(lch_count = 0; lch_count < channel_count; lch_count++)
-            {   
-                fwrite(&adc_data[value_count + lch_count],
-                       sizeof(double),
-                       1,out_files[lch_count] 
-                      );
-            }
-        }
-        kostil_counter++;
+        // change buffer index
+        buffer_index = ( buffer_index == 1 ) ? 0 : 1;
 
-        // if(kostil_counter > 1) g_stop = 1;
+        // for(value_count = 0; value_count < adc_size; value_count += channel_count)
+        // {
+            
+        //     for(lch_count = 0; lch_count < channel_count; lch_count++)
+        //     {   
+        //         fwrite(&adc_data[value_count + lch_count],
+        //                sizeof(double),
+        //                1,out_files[lch_count] 
+        //               );
+        //     }
+        // }
+
         g_stop = 1;
     }
 
@@ -686,6 +697,8 @@ int main(int argc, char** argv)
     }
 
     close_file_streams(out_files, channel_count);
+
+    // Free all memory...
     free(out_files);
 
     free(mc->channel_numbers);
@@ -695,8 +708,9 @@ int main(int argc, char** argv)
     free(mc);
 
     free(rcv_buf);
-    free(adc_data);
-    free(din_data);
+
+    free(data_buffer0);
+    free(data_buffer1);
 
     X502_Close(hnd);
     X502_Free(hnd);
