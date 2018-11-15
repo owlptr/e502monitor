@@ -7,21 +7,23 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <pthread.h>
 
 #include <libconfig.h>
 
-#define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
+// #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
+#define FILE_TIME 60
 
 #define TCP_CONNECTION_TOUT 5000
 
-#define READ_CONFIG_SUCCESS 0 
+#define READ_CONFIG_OK 0 
 #define READ_CONFIG_ERROR -1
 
-#define CFG_ERR -2 
-#define CFG_OK 0
+#define CONFIGURE_OK 0
+#define CONFIGURE_ERROR -2
 
-#define WRITE_HEADERS_ERR -3
 #define WRITE_HEADERS_OK 0
+#define WRITE_HEADERS_ERROR -3
 
 // The structure that stores the startup parameters
 typedef struct {
@@ -37,6 +39,35 @@ typedef struct {
         char *bin_dir;          // Directory of output bin files
     } monitor_config;
 
+// The structure that stores header for output bin files
+typedef struct {
+        uint16_t year;               // Year of creating bin file
+        uint16_t month;              // Month of creating bin file
+        uint16_t day;                // Day of start of the recording
+        uint16_t start_hour;         // Hour of start of the recording
+        uint16_t finish_hour;        // Hour of finish of the recording
+        uint16_t start_minut;        // Minut of start of the recording
+        uint16_t finish_minut;       // Minut of finish of the reocording
+        uint16_t start_second;       // Second of start of the recording
+        uint16_t finish_second;      // Second of finish of the recording
+        uint16_t start_msecond;      // Milliseconds of start recording
+        uint16_t finish_msecond;     // Milliseconds of finish recording
+        uint16_t channel_number;     // Number of used channel 
+        double   freq;               // Frequancy of ADC
+        uint8_t  mode;               // Operation mode 
+    } header;
+
+// global variables
+char    g_buffer_index; // index of use buffer
+FILE**  g_files;       // output files
+int     g_channel_count;      
+int     g_read_block_size; 
+double  g_adc_freq;
+double* g_data;
+double* g_data_bufer0;
+double* g_data_buffer1;
+
+
 
 // TODO: delete this!-------------------//
                                         //
@@ -50,6 +81,42 @@ void abort_handler(int sig)             //
     g_stop = 1;                         //
 }                                       //
 //--------------------------------------//
+
+void close_files()
+{
+    for(int i = 0; i < g_channel_count; ++i)
+    {
+        fclose(g_files[i]);
+    }
+}
+
+void *write_data(void *arg)
+{
+    // char current_index = buffer_index;
+    double* current_buffer = g_data;
+    int ch_counter, data_counter;
+    int data_count_in_file = FILE_TIME * g_adc_freq;
+    int data_count = 0;
+    while(!g_stop)
+    {   
+        if(current_buffer != g_data)
+        {
+            current_buffer = g_data;
+            
+            for(data_counter = 0; data_counter < g_read_block_size; data_counter += g_channel_count)
+            {
+                for(ch_counter = 0; ch_counter < g_channel_count; ++ch_counter)
+                {
+                    fwrite(&g_data[data_counter + ch_counter], sizeof(double), 1, g_files[ch_counter]);
+                }
+            }
+
+            data_count += g_read_block_size;
+
+            if( data_count > data_count_in_file ){ close_files(); g_stop = 1; }
+        }
+    }
+}
 
 /*
     Get all Lcard E-502 devices connected via USB 
@@ -316,7 +383,7 @@ int create_config(monitor_config *mc)
 
     config_destroy(&cfg);
 
-    return READ_CONFIG_SUCCESS;
+    return READ_CONFIG_OK;
 }
 
 void print_config(monitor_config *mc)
@@ -354,7 +421,7 @@ uint32_t configure_module(t_x502_hnd *hnd,
 {
     int32_t err = X502_SetLChannelCount(hnd, mc->channel_count);
 
-    if(err != X502_ERR_OK){ return CFG_ERR; }
+    if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
 
     for(int i = 0; i < mc->channel_count; ++i)
     {
@@ -365,34 +432,43 @@ uint32_t configure_module(t_x502_hnd *hnd,
                                 mc->channel_ranges[i],
                                 0 );
 
-        if(err != X502_ERR_OK){ return CFG_ERR; }
+        if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
     }
 
-    double adc_freq = mc->adc_freq;
+    g_adc_freq = mc->adc_freq;
     double frame_freq = mc->adc_freq/mc->channel_count;
 
-    err = X502_SetAdcFreq(hnd, &adc_freq, &frame_freq);
-    if(err != X502_ERR_OK){ return CFG_ERR; }
+    err = X502_SetAdcFreq(hnd, &g_adc_freq, &frame_freq);
+    if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
 
     //what we realy set...
     printf("\nУстановлены частоты:\n"
            " Частота сбора АЦП\t\t:%0.0f\n"
            " Частота на лог. канал\t\t:%0.0f\n",
-           adc_freq, frame_freq);
+           g_adc_freq, frame_freq);
 
     err = X502_Configure(hnd, 0);
-    if(err != X502_ERR_OK){ return CFG_ERR; }
+    if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
 
     err = X502_StreamsEnable(hnd, X502_STREAM_ADC);
-    if(err != X502_ERR_OK){ return CFG_ERR; }
+    if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
 
-    return CFG_OK;
+    return CONFIGURE_OK;
 
 }
 
-uint32_t write_file_headers(FILE** files, monitor_config *mc)
+int create_files(FILE** files, header *hs, int size)
 {
-    // try open files for writing
+    int i; // counter
+
+    for(i = 0; i < size; ++i)
+    {
+
+    }
+}
+
+uint32_t write_file_headers(FILE** files, monitor_config *mc)
+{    // try open files for writing
     for(int i = 0; i<mc->channel_count; i++)
     {
         char c[2];
@@ -407,7 +483,7 @@ uint32_t write_file_headers(FILE** files, monitor_config *mc)
             {
                 if(files[j] != NULL){ fclose(files[j]); }
             }
-            return WRITE_HEADERS_ERR;
+            return WRITE_HEADERS_ERROR;
         }
 
         // fwrite( &(mc->channel_numbers[i]), sizeof(uint), 1, files[i] );
@@ -550,7 +626,7 @@ int main(int argc, char** argv)
     
     print_config(mc);
 
-    if( configure_module(hnd, mc) != CFG_OK )
+    if( configure_module(hnd, mc) != CONFIGURE_OK )
     {
         printf("\nОшибка при конфигурировании модуля! Завершение.\n");
 
@@ -566,15 +642,9 @@ int main(int argc, char** argv)
         return 0;
     }
     int read_time_out   = mc->read_timeout;
-    int read_block_size = mc->read_block_size;
-    int channel_count   = mc->channel_count;
+    g_read_block_size = mc->read_block_size;
+    g_channel_count   = mc->channel_count;
     double freq         = mc->adc_freq;
-
-    // free(mc->channel_numbers);
-    // free(mc->channel_ranges);
-    // free(mc->channel_modes);
-
-    // free(mc);
     
     uint32_t err = X502_StreamsStart(hnd);
     if(err != X502_ERR_OK)
@@ -592,7 +662,7 @@ int main(int argc, char** argv)
     printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
     fflush(stdout);
 
-    uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*read_block_size);
+    uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*g_read_block_size);
     
     int32_t  rcv_size;
     uint32_t adc_size;
@@ -600,7 +670,7 @@ int main(int argc, char** argv)
 
 
 
-    FILE **out_files = (FILE*)malloc(sizeof(FILE*)*channel_count);
+    g_files = (FILE*)malloc(sizeof(FILE*)*g_channel_count);
 
     if( write_file_headers(out_files, mc) != WRITE_HEADERS_OK )
     {
@@ -613,8 +683,6 @@ int main(int argc, char** argv)
         free(mc);
 
         free(rcv_buf);
-        free(adc_data);
-        free(din_data);
 
         free(out_files);
 
@@ -624,24 +692,33 @@ int main(int argc, char** argv)
         return 0; // exit from program
     }
 
+    // create file headers
+    header *hs = (header*)malloc(sizeof(header)*channel_count);
+
+    for(int i = 0; i < channel_count; i++)
+    {
+        
+    }
+
+
     /* 
         Two buffers for reading data. While one of them is filled
         data from other writing to binary files.
     */
-    double *data_buffer0 = (double*)malloc(sizeof(double)*read_block_size);
-    double *data_buffer1 = (double*)malloc(sizeof(double)*read_block_size);
+    g_data_buffer0 = (double*)malloc(sizeof(double)*read_block_size);
+    g_data_buffer1 = (double*)malloc(sizeof(double)*read_block_size);
 
-    int buffer_index = 0; // index of current buffer
+    g_buffer_index = 0; // index of current buffer
     
     // pointer to current buffer 
-    // equals data_buffer1 or data_buffer2
-    double *data = data_buffer1;
+    // equals data_buffer0 or data_buffer1
+    g_data = g_data_buffer0;
 
 
     while(!g_stop)
     {
         // switch between buffers
-        data = (buffer_index == 0) ? data_buffer0 : data_buffer1;
+        g_data = (g_buffer_index == 0) ? g_data_buffer0 : g_data_buffer1;
 
         rcv_size = X502_Recv(hnd, rcv_buf, read_block_size, read_time_out);
 
@@ -658,7 +735,7 @@ int main(int argc, char** argv)
         adc_size = sizeof(double)*read_block_size;
 
         err = X502_ProcessData(hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
-                               data, &adc_size, NULL, NULL);
+                               g_data, &adc_size, NULL, NULL);
 
         if(err != X502_ERR_OK)
         {
@@ -671,7 +748,7 @@ int main(int argc, char** argv)
         }
 
         // change buffer index
-        buffer_index = ( buffer_index == 1 ) ? 0 : 1;
+        g_buffer_index = ( g_buffer_index == 1 ) ? 0 : 1;
 
         // for(value_count = 0; value_count < adc_size; value_count += channel_count)
         // {
@@ -699,7 +776,7 @@ int main(int argc, char** argv)
     close_file_streams(out_files, channel_count);
 
     // Free all memory...
-    free(out_files);
+    free(g_files);
 
     free(mc->channel_numbers);
     free(mc->channel_ranges);
@@ -709,8 +786,10 @@ int main(int argc, char** argv)
 
     free(rcv_buf);
 
-    free(data_buffer0);
-    free(data_buffer1);
+    free(hs);
+
+    free(g_data_buffer0);
+    free(g_data_buffer1);
 
     X502_Close(hnd);
     X502_Free(hnd);
