@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 
 import array
 
-file = open('data0', 'rb')
+file = open('test_data', 'rb')
 
 # file.read(152)
 
-byte_data = file.read(800)
+byte_data = file.read(16000)
 
 file.close()
 

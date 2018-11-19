@@ -11,8 +11,10 @@
 
 #include <libconfig.h>
 
+#include "pdouble_queue.h"
+
 // #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
-#define FILE_TIME 60
+#define FILE_TIME 30
 
 #define TCP_CONNECTION_TOUT 5000
 
@@ -48,7 +50,6 @@ typedef struct {
         uint8_t  mode;               // Operation mode 
     } header;
 
-
 // ---------------------GLOBAL VARIABLES---------------------------------
 
 FILE** g_files;           // Descriptors of ouput binary files
@@ -58,6 +59,8 @@ header* g_hdrs;
 double* g_buffer1 = NULL;
 double* g_buffer2 = NULL;
 double* g_read_buffer = NULL;
+
+pdouble_queue*  g_pd_queue;
 
 int     g_buffer_index;
 int     g_current_buffer_size;
@@ -83,45 +86,46 @@ t_x502_hnd* g_hnd = NULL; // module heandler
 
 int g_stop = 0; // if equal 1 - stop working
 
-pthread_mutex_t g_bs_mutex;  // mutex for buffer state
-pthread_mutex_t g_cbs_mutex; // mutex for current buffer size 
+// pthread_mutex_t g_bs_mutex;  // mutex for buffer state
+// pthread_mutex_t g_cbs_mutex; // mutex for current buffer size 
+
 //----------------------------------------------------------------------
 
-void set_buffer_state(int state)
-{
-    pthread_mutex_lock(&g_bs_mutex);
+// void set_buffer_state(int state)
+// {
+//     pthread_mutex_lock(&g_bs_mutex);
 
-    g_buffer_state = state;
+//     g_buffer_state = state;
 
-    pthread_mutex_unlock(&g_bs_mutex);
-}
+//     pthread_mutex_unlock(&g_bs_mutex);
+// }
 
-void get_buffer_state(int *state)
-{
-    pthread_mutex_lock(&g_bs_mutex);
+// void get_buffer_state(int *state)
+// {
+//     pthread_mutex_lock(&g_bs_mutex);
 
-    (*state) = g_buffer_state ;
+//     (*state) = g_buffer_state ;
 
-    pthread_mutex_unlock(&g_bs_mutex);
-}
+//     pthread_mutex_unlock(&g_bs_mutex);
+// }
 
-void set_current_buffer_size(int size)
-{
-    pthread_mutex_lock(&g_cbs_mutex);
+// void set_current_buffer_size(int size)
+// {
+//     pthread_mutex_lock(&g_cbs_mutex);
 
-    g_current_buffer_size = size;
+//     g_current_buffer_size = size;
 
-    pthread_mutex_unlock(&g_cbs_mutex);
-}
+//     pthread_mutex_unlock(&g_cbs_mutex);
+// }
 
-void get_current_buffer_size(int *size)
-{
-    pthread_mutex_lock(&g_cbs_mutex);
+// void get_current_buffer_size(int *size)
+// {
+//     pthread_mutex_lock(&g_cbs_mutex);
 
-     (*size) = g_current_buffer_size;
+//      (*size) = g_current_buffer_size;
 
-    pthread_mutex_unlock(&g_cbs_mutex);
-}
+//     pthread_mutex_unlock(&g_cbs_mutex);
+// }
 
 // Signal of completion                 
 void abort_handler(int sig){ g_stop = 1; }
@@ -401,21 +405,31 @@ int configure_module()
     return CONFIGURE_OK;
 }
 
-void allocate_buffers()
+void allocate_global()
 {
+    // pthread_mutex_init(&g_bs_mutex, NULL);
+    // pthread_mutex_init(&g_cbs_mutex, NULL);
+
+    g_pd_queue = create_pdouble_queue();
+
     // g_data   = (double*)malloc(sizeof(double)*g_read_block_size);
     // 
     // g_buffer_size = FILE_TIME*g_adc_freq*g_channel_count;
     // g_buffer1 = (double*)malloc(sizeof(double)*g_buffer_size);
     // g_buffer2 = (double*)malloc(sizeof(double)*g_buffer_size);
 
-    g_buffer1 = (double*)malloc(sizeof(double)*g_read_block_size);
-    g_buffer2 = (double*)malloc(sizeof(double)*g_read_block_size);
-        
+    // g_buffer1 = (double*)malloc(sizeof(double)*g_read_block_size);
+    // g_buffer2 = (double*)malloc(sizeof(double)*g_read_block_size); 
 }
 
 void free_memory()
 {
+    printf("Очищаю память!\n");
+
+    // pthread_mutex_destroy(&g_bs_mutex);
+    // pthread_mutex_destroy(&g_cbs_mutex);
+    destroy_pdouble_queue(&g_pd_queue);
+
     if(g_channel_numbers != NULL){ free(g_channel_numbers);}
     if(g_channel_modes != NULL){ free(g_channel_modes);}
     if(g_channel_ranges != NULL){ free(g_channel_ranges);}
@@ -514,41 +528,41 @@ void* write_data(void *arg)
 
     int current_file_size = 0;
 
+    double *data;
+
     while(!g_stop)
     {
-        get_buffer_state(&buffer_state);
+        // get_buffer_state(&buffer_state);
 
-        if(buffer_state == 1)
+        pop(g_pd_queue, &data, &size);
+
+        if(data != NULL)
         {
-            set_buffer_state(BUFFER_EMPTY);
-            get_current_buffer_size(&size);
+                    printf("Data: = %p, Size = %d\n", data, size);
+            // set_buffer_state(BUFFER_EMPTY);
+            // get_current_buffer_size(&size);
 
-            rem = size % 4;
-
-            printf("Пишу буфер\n");
-
+            rem = size % g_channel_count;
             for(data_cntr = 0; data_cntr < size; data_cntr += g_channel_count)
             {
                 for(ch_cntr = 0; ch_cntr < g_channel_count; ++ch_cntr)
                 {
-                    // double d = g_read_buffer[data_cntr + ch_cntr];
-                    // printf("%f\n", &g_read_buffer[data_cntr + ch_cntr]);
-                    // fwrite(&d,
-                    //        sizeof(double),
-                    //        1,
-                    //        g_files[ch_cntr]);
+                    fwrite(&data[data_cntr],
+                           sizeof(double),
+                           1,
+                           g_files[ch_cntr]);
                 }
             }
 
             for(rem_cntr = rem, ch_cntr = 0; rem_cntr != 0; --rem_cntr, ++ch_cntr)
             {
-                    // fwrite(&g_read_buffer[size - rem_cntr],
-                    //        sizeof(double),
-                    //        1,
-                    //        g_files[ch_cntr]);
+                    fwrite(&data[size - rem_cntr],
+                           sizeof(double),
+                           1,
+                           g_files[ch_cntr]);
             }
 
-            printf("Буфер записан\n");
+            free(data);
 
             current_file_size += size/g_channel_count;
 
@@ -558,8 +572,7 @@ void* write_data(void *arg)
                 g_stop = 1;
                 // create_files();
             }
-            printf("Все\n");
-        }
+        } 
     }
 }
 
@@ -567,10 +580,7 @@ int main(int argc, char** argv)
 {
     create_stop_event_handler();
 
-    pthread_mutex_init(&g_bs_mutex, NULL);
-    pthread_mutex_init(&g_cbs_mutex, NULL);
-
-    allocate_buffers();
+    allocate_global();
 
     uint32_t err = create_config();
 
@@ -687,51 +697,38 @@ int main(int argc, char** argv)
     int32_t  rcv_size;
     uint32_t first_lch;
     
-    // pthread_t thread;
-    // pthread_create(&thread, NULL,write_data NULL);
-    // pthread_detach(thread);
+    pthread_t thread;
+    pthread_create(&thread, NULL, write_data, NULL);
+    pthread_detach(thread);
 
-    int buffer_index = 0;
+    // int buffer_index = 0;
 
     uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*g_read_block_size);
+    
+    double* data;
+
     while(!g_stop)
     {
-        // printf("Меняю буфер\n");
-        write_buffer = (buffer_index == 0) ? g_buffer1 : g_buffer2;
+        data = (double*)malloc(sizeof(double) * g_read_block_size);
 
         rcv_size = X502_Recv(g_hnd, rcv_buf, g_read_block_size, g_read_timeout);
 
         X502_GetNextExpectedLchNum(g_hnd, &first_lch);
 
-        set_current_buffer_size(rcv_size);
+        // set_current_buffer_size(rcv_size);
 
         // is it right?
         adc_size = sizeof(double)*g_read_block_size;
         
         printf("rcv_size = %d   adc_size = %d\n", rcv_size, adc_size);
 
-        printf("Читаю в буфер\n");
         err = X502_ProcessData(g_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
-                               write_buffer, &adc_size, NULL, NULL);
-        printf("Данные прочитаны\n");
+                               data, &adc_size, NULL, NULL);
 
-        // printf("1read_buffer = %p\n", g_read_buffer);
-        // printf("1write_buffer = %p\n", write_buffer);
-        
-        // g_read_buffer = write_buffer;
-        
-        // printf("2read_buffer = %p\n", g_read_buffer);
-        // printf("2write_buffer = %p\n", write_buffer);
-        
-        // set_buffer_state(BUFFER_FULL);
-
-        buffer_index = ( buffer_index == 0 ) ? 1 : 0;
+        push(g_pd_queue, &data, rcv_size);
     }
 
     free_memory();
-
-    pthread_mutex_destroy(&g_bs_mutex);
-    pthread_mutex_destroy(&g_cbs_mutex);
     
     return EXECUTE_OK;  
 }
