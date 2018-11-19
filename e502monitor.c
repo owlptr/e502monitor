@@ -48,27 +48,21 @@ typedef struct {
         uint16_t channel_number;     // Number of used channel 
         double   adc_freq;           // Frequancy of ADC
         uint8_t  mode;               // Operation mode 
+        char*    module_name;        // Name of using ADC 
+        uint8_t  channel_range;      // Channel measurement range
+        char*    place_cordinates;   // Coordinates of the working place 
     } header;
 
 // ---------------------GLOBAL VARIABLES---------------------------------
 
 FILE** g_files;           // Descriptors of ouput binary files
 
-header* g_hdrs; 
+header g_header; 
 
-double* g_buffer1 = NULL;
-double* g_buffer2 = NULL;
-double* g_read_buffer = NULL;
+pdouble_queue*  g_pd_queue; // queue for store read data
 
-pdouble_queue*  g_pd_queue;
-
-int     g_buffer_index;
-int     g_current_buffer_size;
-
-#define BUFFER_EMPTY 0
-#define BUFFER_FULL 1
-
-int     g_buffer_state = BUFFER_EMPTY;
+struct timeval g_time_start; 
+struct timeval g_time_end;
 
 // startup config
 int g_channel_count;               // Count of use logical chnnels
@@ -85,47 +79,7 @@ char *g_bin_dir        = NULL;     // Directory of output bin files
 t_x502_hnd* g_hnd = NULL; // module heandler
 
 int g_stop = 0; // if equal 1 - stop working
-
-// pthread_mutex_t g_bs_mutex;  // mutex for buffer state
-// pthread_mutex_t g_cbs_mutex; // mutex for current buffer size 
-
 //----------------------------------------------------------------------
-
-// void set_buffer_state(int state)
-// {
-//     pthread_mutex_lock(&g_bs_mutex);
-
-//     g_buffer_state = state;
-
-//     pthread_mutex_unlock(&g_bs_mutex);
-// }
-
-// void get_buffer_state(int *state)
-// {
-//     pthread_mutex_lock(&g_bs_mutex);
-
-//     (*state) = g_buffer_state ;
-
-//     pthread_mutex_unlock(&g_bs_mutex);
-// }
-
-// void set_current_buffer_size(int size)
-// {
-//     pthread_mutex_lock(&g_cbs_mutex);
-
-//     g_current_buffer_size = size;
-
-//     pthread_mutex_unlock(&g_cbs_mutex);
-// }
-
-// void get_current_buffer_size(int *size)
-// {
-//     pthread_mutex_lock(&g_cbs_mutex);
-
-//      (*size) = g_current_buffer_size;
-
-//     pthread_mutex_unlock(&g_cbs_mutex);
-// }
 
 // Signal of completion                 
 void abort_handler(int sig){ g_stop = 1; }
@@ -405,29 +359,8 @@ int configure_module()
     return CONFIGURE_OK;
 }
 
-void allocate_global()
-{
-    // pthread_mutex_init(&g_bs_mutex, NULL);
-    // pthread_mutex_init(&g_cbs_mutex, NULL);
-
-    g_pd_queue = create_pdouble_queue();
-
-    // g_data   = (double*)malloc(sizeof(double)*g_read_block_size);
-    // 
-    // g_buffer_size = FILE_TIME*g_adc_freq*g_channel_count;
-    // g_buffer1 = (double*)malloc(sizeof(double)*g_buffer_size);
-    // g_buffer2 = (double*)malloc(sizeof(double)*g_buffer_size);
-
-    // g_buffer1 = (double*)malloc(sizeof(double)*g_read_block_size);
-    // g_buffer2 = (double*)malloc(sizeof(double)*g_read_block_size); 
-}
-
 void free_memory()
 {
-    printf("Очищаю память!\n");
-
-    // pthread_mutex_destroy(&g_bs_mutex);
-    // pthread_mutex_destroy(&g_cbs_mutex);
     destroy_pdouble_queue(&g_pd_queue);
 
     if(g_channel_numbers != NULL){ free(g_channel_numbers);}
@@ -506,16 +439,42 @@ int print_info_about_module()
 
 int create_files()
 {
+    struct tm *ct; // current time without mseconds
+    
+    ct = gmtime(&g_time_start.tv_sec);
+
     g_files = (FILE*)malloc(sizeof(FILE*)*g_channel_count);
+
+    char file_name[100];
+
+    g_header->year          = 1900 + ct->tm_year;
+    g_header->month         = ct->tm_mon;
+    g_header->day           = ct->tm_mday;
+    g_header->start_hour    = ct->tm_hour;
+    g_header->start_minut   = ct->tm_min;
+    g_header->start_second  = ct->tm_sec;
+    g_header->start_msecond = g_time_start.tv_usec - ct->tm_year * 12 *;
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
 
     for(int i = 0; i < g_channel_count; ++i)
     {
-        g_files[i] = fopen("test_data", "wb");
+        sprintf(file_name, 
+                "%d%02d%02d-%02d%02d-%d",
+                1900 + ct->tm_year,
+                ct->tm_mon,
+                ct->tm_mday,
+                ct2->tm_hour,
+                ct->tm_min,
+                g_channel_numbers[i]);
+        g_files[i] = fopen(file_name, "wb");
+
+        // write headers
     }
 
-    return CREATE_OUT_FILES_OK;
+
+
+    return CREATE_OUT_FILES_ERROR;
 }
 
 void* write_data(void *arg)
@@ -580,7 +539,7 @@ int main(int argc, char** argv)
 {
     create_stop_event_handler();
 
-    allocate_global();
+    g_pd_queue = create_pdouble_queue();
 
     uint32_t err = create_config();
 
@@ -681,18 +640,6 @@ int main(int argc, char** argv)
     // allocate memory for file headers for each channel
     g_hdrs = (header*)malloc(sizeof(header)*g_channel_count);
 
-    err = create_files();
-
-    if( err != CREATE_OUT_FILES_OK )
-    {  
-        printf("Ошибка создания описателей выходных файлов!\n");
-        free_memory();
-        return err;
-    }
-
-    double* write_buffer;
-    g_buffer_index = 0; 
-
     uint32_t adc_size = sizeof(double)*g_read_block_size;
     int32_t  rcv_size;
     uint32_t first_lch;
@@ -707,6 +654,20 @@ int main(int argc, char** argv)
     
     double* data;
 
+    int curent_file_size = 0;
+    int total_file_size = FILE_TIME * g_adc_freq;
+
+    gettimeofday(&g_time_start, NULL);
+
+    err = create_files();
+
+    if( err != CREATE_OUT_FILES_OK )
+    {  
+        printf("Ошибка создания описателей выходных файлов!\n");
+        free_memory();
+        return err;
+    }
+
     while(!g_stop)
     {
         data = (double*)malloc(sizeof(double) * g_read_block_size);
@@ -715,15 +676,22 @@ int main(int argc, char** argv)
 
         X502_GetNextExpectedLchNum(g_hnd, &first_lch);
 
-        // set_current_buffer_size(rcv_size);
-
-        // is it right?
         adc_size = sizeof(double)*g_read_block_size;
         
         printf("rcv_size = %d   adc_size = %d\n", rcv_size, adc_size);
 
         err = X502_ProcessData(g_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                data, &adc_size, NULL, NULL);
+
+        // if need create new files store moment of
+        // reading new block data
+        curent_file_size += rcv_size;
+        if( rcv_size > total_file_size )
+        { 
+            curent_file_size = 0;
+            gettimeofday(&g_time_start, NULL);
+            gettimeofday(&g_time_end, NULL);
+        }
 
         push(g_pd_queue, &data, rcv_size);
     }
