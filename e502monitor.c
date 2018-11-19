@@ -377,6 +377,9 @@ void free_memory()
 
 void close_files()
 {
+
+    // g_header->finish_hour = g_time_end->
+
     for(int i = 0; i < g_channel_count; ++i){ fclose(g_files[i]); }
 }
 
@@ -439,36 +442,41 @@ int print_info_about_module()
 
 int create_files()
 {
-    struct tm *ct; // current time without mseconds
+    struct tm *ts; // time of start recording
     
-    ct = gmtime(&g_time_start.tv_sec);
+    ts = gmtime(&g_time_start.tv_sec);
 
     g_files = (FILE*)malloc(sizeof(FILE*)*g_channel_count);
 
     char file_name[100];
 
-    g_header->year          = 1900 + ct->tm_year;
-    g_header->month         = ct->tm_mon;
-    g_header->day           = ct->tm_mday;
-    g_header->start_hour    = ct->tm_hour;
-    g_header->start_minut   = ct->tm_min;
-    g_header->start_second  = ct->tm_sec;
-    g_header->start_msecond = g_time_start.tv_usec - ct->tm_year * 12 *;
+    // part of structure "header" fileds
+    // another part will be initialize in close_files() function
+    g_header->year          = 1900 + ts->tm_year;
+    g_header->month         = ts->tm_mon;
+    g_header->day           = ts->tm_mday;
+    g_header->start_hour    = ts->tm_hour;
+    g_header->start_minut   = ts->tm_min;
+    g_header->start_second  = ts->tm_sec;
+    g_header->start_msecond = (int)g_time_start.tv_usec;
+    // --------------------------------------------------
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
 
     for(int i = 0; i < g_channel_count; ++i)
     {
         sprintf(file_name, 
-                "%d%02d%02d-%02d%02d-%d",
-                1900 + ct->tm_year,
-                ct->tm_mon,
-                ct->tm_mday,
-                ct2->tm_hour,
-                ct->tm_min,
+                "%d_%02d_%02d-%02d:%02d:%02d:%06d-%d",
+                1900 + ts->tm_year,
+                ts->tm_mon,
+                ts->tm_mday,
+                ts->tm_hour,
+                ts->tm_min,
+                ts->tm_sec,
+                (int)g_time_start.tv_usec,
                 g_channel_numbers[i]);
-        g_files[i] = fopen(file_name, "wb");
 
+        g_files[i] = fopen(file_name, "wb");
         // write headers
     }
 
