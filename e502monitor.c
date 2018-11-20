@@ -51,9 +51,24 @@ typedef struct {
         char*    module_name;        // Name of using ADC 
         uint8_t  channel_range;      // Channel measurement range
         char*    place_cordinates;   // Coordinates of the working place 
+        char*    channel_name;       // Name of channel
     } header;
 
 // ---------------------GLOBAL VARIABLES---------------------------------
+
+// 1. Some default defines ans variables:
+
+#define DEFAULT_CHANNEL_COUNT 1
+#define DEFAULT_READ_BLOCK_SIZE 2000
+#define DEFAULT_FREQUANCY 1000.0
+#define DEFAULT_OUTPUT_DIR "/data"
+#define DEFAULT_MODULE_NAME "Lcard E-502"
+#define DEFAULT_PLCAE_NAME "NULL"
+#define DEFUALT_PLACE_COORDINATES "NULL"
+#define MAX_CHANNEL_NUMBERS 16
+#define DEFAULT_READ_TIMEOUT 2000
+
+// 2. Other global variables:
 
 FILE** g_files;           // Descriptors of ouput binary files
 
@@ -65,16 +80,35 @@ struct timeval g_time_start;
 struct timeval g_time_end;
 
 // startup config
-int g_channel_count;               // Count of use logical chnnels
-double g_adc_freq;                 // Frequency descritization
-int g_read_block_size;             // The size of the data block 
-                                   //  that is read at once from the ADC
+char *g_channel_names[MAX_CHANNEL_NUMBERS] = {
+    "ch0",
+    "ch1",
+    "ch2",
+    "ch3",
+    "ch4",
+    "ch5",
+    "ch6",
+    "ch7",
+    "ch8",
+    "ch9",
+    "ch10",
+    "ch11",
+    "ch12",
+    "ch13",
+    "ch14",
+    "ch15",
+};
 
-int  g_read_timeout;               // Timeout for receiving data in ms.
-int* g_channel_numbers = NULL;     // Numbers of using logical channels
-int* g_channel_modes   = NULL;     // Operation modes for channels
-int* g_channel_ranges  = NULL;     // Channel measurement range
-char *g_bin_dir        = NULL;     // Directory of output bin files
+int g_channel_count;            // Count of use logical chnnels
+double g_adc_freq;              // Frequency descritization
+int g_read_block_size;          // The size of the data block 
+                                    //  that is read at once from the ADC
+             
+int   g_read_timeout;           // Timeout for receiving data in ms.
+int*  g_channel_numbers = NULL; // Numbers of using logical channels
+int*  g_channel_modes   = NULL; // Operation modes for channels
+int*  g_channel_ranges  = NULL; // Channel measurement range
+char* g_bin_dir         = NULL; // Directory of output bin files
 
 t_x502_hnd* g_hnd = NULL; // module heandler
 
@@ -190,10 +224,69 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
     return hnd;
 }
 
+void set_default_values()
+{
+    g_channel_count = DEFAULT_CHANNEL_COUNT;
+    g_adc_freq = DEFAULT_FREQUANCY;
+    g_read_block_size = DEFAULT_READ_BLOCK_SIZE;
+    g_read_timeout = DEFAULT_READ_TIMEOUT;
+    
+    g_channel_numbers = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_numbers[i] = i;
+    }
+
+    g_channel_modes = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_modes[i] = X502_LCH_MODE_DIFF;
+    }
+
+    g_channel_ranges = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_modes[i] = X502_ADC_RANGE_10;
+    }
+
+    g_bin_dir = DEFAULT_OUTPUT_DIR;
+}
+
+void set_default_channel_modes()
+{
+    g_channel_modes = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_modes[i] = X502_LCH_MODE_DIFF;
+    }
+}
+
+void set_default_channel_numbers()
+{
+    g_channel_numbers = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_numbers[i] = i;
+    }
+}
+
+void set_default_channel_ranges()
+{
+    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    {
+        g_channel_modes[i] = X502_ADC_RANGE_10;
+    }
+}
+
 /* 
     Initalize variables, which represent startup config:
 */
-int create_config()
+void create_config()
 {
     config_t cfg; 
 
@@ -201,94 +294,99 @@ int create_config()
 
     if(!config_read_file(&cfg, "e502monitor.cfg"))
     {
-        fprintf(stderr, "%s:%d - %s\n",  config_error_file(&cfg),
-                config_error_line(&cfg), config_error_text(&cfg));
-        config_destroy(&cfg);
-
-        return READ_CONFIG_ERROR;
+        printf("Не найден конфигурацйионный файл e502monitor.cfg\n"
+                "Задаю значения по-умолчанию.\n");
+        set_default_values();
+        return;
     }
 
     int found_value;
     int err = config_lookup_int(&cfg, "channel_count", &g_channel_count);
     if(err == CONFIG_FALSE)
     { 
-        printf("Ошибка конфигурационного файла:\tколичество каналов не задано!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
+        printf("Ошибка конфигурационного файла:\tколичество каналов не задано!\n");
+        printf("Установлено значение по-умолчанию\n");
+        g_channel_count = DEFAULT_CHANNEL_COUNT;
     }
 
     err = config_lookup_float(&cfg, "adc_freq", &g_adc_freq);
     if(err == CONFIG_FALSE)
     { 
-        printf("Ошибка конфигурационного файла:\tчастота сбора АЦП не задана!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
+        printf("Ошибка конфигурационного файла:\tчастота сбора АЦП не задана!\n");
+        printf("Установлено значение по-умолчанию\n");
+        g_adc_freq = DEFAULT_FREQUANCY;
     }
     
     err = config_lookup_int(&cfg, "read_block_size", &g_read_block_size);
     if(err == CONFIG_FALSE)
     { 
-        printf("Ошибка конфигурационного файла:\tразмер блока для чтения не задан!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
+        printf("Ошибка конфигурационного файла:\tразмер блока для чтения не задан!\n");
+        printf("Установлено значение по-умолчанию\n");
+        g_read_block_size = DEFAULT_READ_BLOCK_SIZE;
     }
     
     err = config_lookup_int(&cfg, "read_timeout", &g_read_timeout);
     if(err == CONFIG_FALSE)
     { 
-        printf("Ошибка конфигурационного файла:\tвремя задержки перед чтением блока не задано!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR; 
+        printf("Ошибка конфигурационного файла:\tвремя задержки перед чтением блока не задано!\n");
+        printf("Установлено значение по-умолчанию\n");
+        g_read_timeout = DEFAULT_READ_TIMEOUT;
     }
 
     config_setting_t *channel_numbers = config_lookup(&cfg, "channel_numbers");
     if(channel_numbers == NULL)
     {
-        printf("Ошибка конфигурационного файла:\tномера каналов не заданы!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
-    }
+        printf("Ошибка конфигурационного файла:\tномера каналов не заданы!\n");
+        printf("Установлено значение по-умолчанию\n");
+        set_default_channel_numbers();
 
-    g_channel_numbers = (int*)malloc(sizeof(int)*g_channel_count);
+    } else {
 
-    for(int i = 0; i < g_channel_count; i++)
-    {
-        g_channel_numbers[i] = config_setting_get_int_elem(channel_numbers, i);
+        g_channel_numbers = (int*)malloc(sizeof(int)*g_channel_count);
+
+        for(int i = 0; i < g_channel_count; i++)
+        {
+            g_channel_numbers[i] = config_setting_get_int_elem(channel_numbers, i);
+        }
     }
 
     config_setting_t *channel_modes = config_lookup(&cfg, "channel_modes");
     if(channel_modes == NULL)
     {
-        printf("Ошибка конфигурационного файла:\tрежимы каналов не заданы!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
-    }
+        
+        printf("Ошибка конфигурационного файла:\tрежимы каналов не заданы!\n");
+        printf("Установлено значение по-умолчанию\n");
+        set_default_channel_modes();
 
-    g_channel_modes = (int*)malloc(sizeof(int)*g_channel_count);
-    
-    for(int i = 0; i < g_channel_count; i++)
-    {
-        g_channel_modes[i] = config_setting_get_int_elem(channel_modes, i);
+    } else {
+
+        g_channel_modes = (int*)malloc(sizeof(int)*g_channel_count);
+
+        for(int i = 0; i < g_channel_count; i++)
+        {
+            g_channel_modes[i] = config_setting_get_int_elem(channel_modes, i);
+        }
     }
 
     config_setting_t *channel_ranges = config_lookup(&cfg, "channel_ranges");
     if(channel_ranges == NULL)
     {
-        printf("Ошибка конфигурационного файла:\tдиапазоны каналов не заданы!");
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
-    }
+        
+        printf("Ошибка конфигурационного файла:\tдиапазоны каналов не заданы!\n");
+        printf("Установлено значение по-умолчанию\n");
+        set_default_channel_ranges();
 
-    g_channel_ranges = (int*)malloc(sizeof(int)*g_channel_count);
+    } else {
 
-    for(int i = 0; i < g_channel_count; i++)
-    {
-        g_channel_ranges[i] = config_setting_get_int_elem(channel_ranges, i);
+        g_channel_ranges = (int*)malloc(sizeof(int)*g_channel_count);
+
+        for(int i = 0; i < g_channel_count; i++)
+        {
+            g_channel_ranges[i] = config_setting_get_int_elem(channel_ranges, i);
+        }
     }
 
     config_destroy(&cfg);
-
-    return READ_CONFIG_OK;
 }
 
 void print_config()
@@ -367,7 +465,6 @@ void free_memory()
     if(g_channel_modes != NULL){ free(g_channel_modes);}
     if(g_channel_ranges != NULL){ free(g_channel_ranges);}
     if(g_bin_dir != NULL){ free(g_bin_dir);}   
-    if(g_hdrs != NULL){ free(g_hdrs); }
     if(g_hnd != NULL)
     {
         X502_Close(g_hnd);
@@ -452,13 +549,13 @@ int create_files()
 
     // part of structure "header" fileds
     // another part will be initialize in close_files() function
-    g_header->year          = 1900 + ts->tm_year;
-    g_header->month         = ts->tm_mon;
-    g_header->day           = ts->tm_mday;
-    g_header->start_hour    = ts->tm_hour;
-    g_header->start_minut   = ts->tm_min;
-    g_header->start_second  = ts->tm_sec;
-    g_header->start_msecond = (int)g_time_start.tv_usec;
+    g_header.year          = 1900 + ts->tm_year;
+    g_header.month         = ts->tm_mon;
+    g_header.day           = ts->tm_mday;
+    g_header.start_hour    = ts->tm_hour;
+    g_header.start_minut   = ts->tm_min;
+    g_header.start_second  = ts->tm_sec;
+    g_header.start_msecond = (int)g_time_start.tv_usec;
     // --------------------------------------------------
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
@@ -549,15 +646,7 @@ int main(int argc, char** argv)
 
     g_pd_queue = create_pdouble_queue();
 
-    uint32_t err = create_config();
-
-    if(err != READ_CONFIG_OK)
-    {
-        free_memory();
-        printf("\nОшибка при создании конфигурации модуля! Заверешение.\n");
-
-        return err;
-    }
+    create_config();
 
     print_config();
 
@@ -628,7 +717,7 @@ int main(int argc, char** argv)
 
     configure_module();
 
-    err = X502_StreamsStart(g_hnd);
+    uint32_t err = X502_StreamsStart(g_hnd);
     if(err != X502_ERR_OK)
     {
         fprintf(stderr,
@@ -644,9 +733,6 @@ int main(int argc, char** argv)
 
     printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
     fflush(stdout);
-
-    // allocate memory for file headers for each channel
-    g_hdrs = (header*)malloc(sizeof(header)*g_channel_count);
 
     uint32_t adc_size = sizeof(double)*g_read_block_size;
     int32_t  rcv_size;
