@@ -16,6 +16,8 @@
 // #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
 #define FILE_TIME 30
 
+#define MAX_CHANNELS 16
+
 #define TCP_CONNECTION_TOUT 5000
 
 #define READ_CONFIG_OK 0 
@@ -32,83 +34,56 @@
 #define CREATE_OUT_FILES_OK 0
 #define CREATE_OUT_FILES_ERROR -4
 
+#define CREATE_DEFAULT_CONFIG_OK 0
+#define CREATE_DEFAULT_CONFIG_ERROR -5
+
 // The structure that stores header for output bin files
 typedef struct {
-        uint16_t year;               // Year of creating bin file
-        uint16_t month;              // Month of creating bin file
-        uint16_t day;                // Day of start of the recording
-        uint16_t start_hour;         // Hour of start of the recording
-        uint16_t finish_hour;        // Hour of finish of the recording
-        uint16_t start_minut;        // Minut of start of the recording
-        uint16_t finish_minut;       // Minut of finish of the reocording
-        uint16_t start_second;       // Second of start of the recording
-        uint16_t finish_second;      // Second of finish of the recording
-        uint16_t start_msecond;      // Milliseconds of start recording
-        uint16_t finish_msecond;     // Milliseconds of finish recording
-        uint16_t channel_number;     // Number of used channel 
-        double   adc_freq;           // Frequancy of ADC
-        uint8_t  mode;               // Operation mode 
-        char*    module_name;        // Name of using ADC 
-        uint8_t  channel_range;      // Channel measurement range
-        char*    place_cordinates;   // Coordinates of the working place 
-        char*    channel_name;       // Name of channel
+        int      year;                   // Year of creating bin file
+        int      month;                  // Month of creating bin file
+        int      day;                    // Day of start of the recording
+        int      start_hour;             // Hour of start of the recording
+        int      finish_hour;            // Hour of finish of the recording
+        int      start_minut;            // Minut of start of the recording
+        int      finish_minut;           // Minut of finish of the recording
+        int      start_second;           // Second of start of the recording
+        int      finish_second;          // Second of finish of the recording
+        int      start_msecond;          // Milliseconds of start recording
+        int      finish_msecond;         // Milliseconds of finish recording
+        int      channel_number;         // Number of used channel 
+        double   adc_freq;               // Frequancy of ADC
+        int      mode;                   // Operation mode 
+        char     module_name[10];        // Name of using ADC 
+        int      channel_range;          // Channel measurement range
+        char     place_name[10];         // Name of the recording place
+        char     place_coordinates[10];  // Coordinates of the recoding place 
+        char     channel_name[10];       // Name of channel
     } header;
 
 // ---------------------GLOBAL VARIABLES---------------------------------
-
-// 1. Some default defines ans variables:
-
-#define DEFAULT_CHANNEL_COUNT 1
-#define DEFAULT_READ_BLOCK_SIZE 2000
-#define DEFAULT_FREQUANCY 1000.0
-#define DEFAULT_OUTPUT_DIR "/data"
-#define DEFAULT_MODULE_NAME "Lcard E-502"
-#define DEFAULT_PLCAE_NAME "NULL"
-#define DEFUALT_PLACE_COORDINATES "NULL"
-#define MAX_CHANNEL_NUMBERS 16
-#define DEFAULT_READ_TIMEOUT 2000
-
-// 2. Other global variables:
-
-FILE** g_files;           // Descriptors of ouput binary files
+FILE** g_files = NULL;           // Descriptors of ouput binary files
 
 header g_header; 
 
-pdouble_queue*  g_pd_queue; // queue for store read data
+pdouble_queue*  g_pd_queue = NULL; // queue for store read data
 
 struct timeval g_time_start; 
 struct timeval g_time_end;
-
-// startup config
-char *g_channel_names[MAX_CHANNEL_NUMBERS] = {
-    "ch0",
-    "ch1",
-    "ch2",
-    "ch3",
-    "ch4",
-    "ch5",
-    "ch6",
-    "ch7",
-    "ch8",
-    "ch9",
-    "ch10",
-    "ch11",
-    "ch12",
-    "ch13",
-    "ch14",
-    "ch15",
-};
 
 int g_channel_count;            // Count of use logical chnnels
 double g_adc_freq;              // Frequency descritization
 int g_read_block_size;          // The size of the data block 
                                     //  that is read at once from the ADC
              
-int   g_read_timeout;           // Timeout for receiving data in ms.
-int*  g_channel_numbers = NULL; // Numbers of using logical channels
-int*  g_channel_modes   = NULL; // Operation modes for channels
-int*  g_channel_ranges  = NULL; // Channel measurement range
-char* g_bin_dir         = NULL; // Directory of output bin files
+int    g_read_timeout;                  // Timeout for receiving data in ms.
+int*   g_channel_numbers       = NULL;  // Numbers of using logical channels
+int*   g_channel_modes         = NULL;  // Operation modes for channels
+int*   g_channel_ranges        = NULL;  // Channel measurement range
+char   g_bin_dir[10]           = "";  // Directory of output bin files
+char   g_module_name[10]       = "";    // Name of using module
+char   g_place_name[10]        = "";    // Name of the recording place
+char   g_place_coordinates[10] = "";    // Coordinates of the recording place
+char** g_channel_names         = NULL;  // Names of using channels 
 
 t_x502_hnd* g_hnd = NULL; // module heandler
 
@@ -224,69 +199,87 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
     return hnd;
 }
 
-void set_default_values()
+int create_default_config()
 {
-    g_channel_count = DEFAULT_CHANNEL_COUNT;
-    g_adc_freq = DEFAULT_FREQUANCY;
-    g_read_block_size = DEFAULT_READ_BLOCK_SIZE;
-    g_read_timeout = DEFAULT_READ_TIMEOUT;
-    
-    g_channel_numbers = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
+    char *default_config[] = {
+        "### Конфигурационный файл для программы e502monitor ###\n",
+        "# Параметры, заключенные в квадратные скобки [], - это списки,\n",
+        "# если количество значений большего одного, то все они перечисляются\n",
+        "# через запятую. Например, channel_numbers = [0, 1, 2]\n",
+        "\n",
+        "# Количество используемых логических каналов\n",
+        "# Максимум: 16\n",
+        "channel_count = 1\n", 
+        "\n",
+        "# Частота дискретизации АЦП в Гц\n",
+        "adc_freq = 10000.0\n",
+        "\n",
+        "# Количество отсчетов, считываемых за блок\n",
+        "# read_block_size = 819200; #4096*200\n",
+        "read_block_size = 20000\n",
+        "\n",
+        "# Таймаут на прием блока (мс)\n",
+        "read_timeout = 2000\n",
+        "\n",
+        "# Номера используемых физических каналов\n",
+        "# Каждое значение в массиве должно иметь значение от 0 до 15\n",
+        "# Количество значений должно равняться channel_count\n",
+        "# Значения не могут повторяться!\n",
+        "channel_numbers = [0]\n",
+        "\n",
+        "# Режимы измерения каналов\n",
+        "#   0: Измерение напряжения относительно общей земли\n",
+        "#   1: Дифференциальное измерение напряжения\n",
+        "#   2: Измерения собственного нуля\n",
+        "#\n",
+        "# Количество значений должно равняться channel_count\n",
+        "channel_modes = [1]\n",
+        "\n",
+        "# Диапазоны измерений каналов\n",
+        "#   0: +/- 10V\n",
+        "#   1: +/- 5V\n",
+        "#   2: +/- 2V\n",
+        "#   3: +/- 1V\n",
+        "#   4: +/- 0.5V\n",
+        "#   5: =/- 0.2V\n",
+        "#\n",
+        "# Количество значений должно равняться channel_count\n",
+        "channel_ranges = [2]\n",
+        "\n",
+        "# Директория для выходных бинарных файлов\n", 
+        "bin_dir = \"/data\"\n",
+        "\n",
+        "# Модель АЦП\n",
+        "module_name = \"Lcard E-502\"\n",
+        "\n",
+        "# Место текущей работы АЦП\n",
+        "place_name = \"IKIR FEB RAS\"\n",
+        "\n",
+        "# Координаты текущего места работы АЦП:\n",
+        "# широта:долгота\n",
+        "place_coordinates = \"00:00\"\n",
+        "\n",
+        "# Названия используемых каналов\n",
+        "# Количество значений должно равняться channel_count\n",
+        "channel_names = [\"ch0\"]\n"
+    };
 
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
+    FILE *cfg_default_file = fopen("e502monitor_default.cfg", "w");
+
+    if(!cfg_default_file){ return CREATE_DEFAULT_CONFIG_ERROR; }
+
+    for(int i = 0; i < (int)sizeof(default_config) / sizeof(char *); i++)
     {
-        g_channel_numbers[i] = i;
+        fprintf(cfg_default_file, "%s", default_config[i]);
     }
 
-    g_channel_modes = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
-
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
-    {
-        g_channel_modes[i] = X502_LCH_MODE_DIFF;
-    }
-
-    g_channel_ranges = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
-
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
-    {
-        g_channel_modes[i] = X502_ADC_RANGE_10;
-    }
-
-    g_bin_dir = DEFAULT_OUTPUT_DIR;
-}
-
-void set_default_channel_modes()
-{
-    g_channel_modes = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
-
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
-    {
-        g_channel_modes[i] = X502_LCH_MODE_DIFF;
-    }
-}
-
-void set_default_channel_numbers()
-{
-    g_channel_numbers = (int*)malloc(sizeof(int)*DEFAULT_CHANNEL_COUNT);
-
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
-    {
-        g_channel_numbers[i] = i;
-    }
-}
-
-void set_default_channel_ranges()
-{
-    for( int i = 0; i < DEFAULT_CHANNEL_COUNT; ++i)
-    {
-        g_channel_modes[i] = X502_ADC_RANGE_10;
-    }
+    fclose(cfg_default_file);
 }
 
 /* 
-    Initalize variables, which represent startup config:
+    Initalize variables, which represent startup config
 */
-void create_config()
+int create_config()
 {
     config_t cfg; 
 
@@ -294,10 +287,27 @@ void create_config()
 
     if(!config_read_file(&cfg, "e502monitor.cfg"))
     {
-        printf("Не найден конфигурацйионный файл e502monitor.cfg\n"
-                "Задаю значения по-умолчанию.\n");
-        set_default_values();
-        return;
+        printf("Не найден конфигурацйионный файл e502monitor.cfg\n");
+        printf("Пытаюсь использовать конфигурационный файл по-умолчанию: "
+          "e502monitor_default.cfg\n");
+        
+        if( !config_read_file(&cfg, "e502monitor_default.cfg") )
+        {
+            printf("Конфигурационный файл по-умолчанию не найден. Создаю его.");
+            if( create_default_config() == CREATE_DEFAULT_CONFIG_OK )
+            {
+                if( !config_read_file(&cfg, "e502monitor_default.cfg") )
+                {
+                    printf("Ошибка при открытиии конфигурационного файла по-умолчанию\n");
+                    return READ_CONFIG_ERROR;
+                }
+            } else {
+                printf("Не удалось создать конфигурационный файл по-умолчанию. "
+                        "Нет прав на запись в текущую директорию???\n");
+                return READ_CONFIG_ERROR;
+            } 
+
+        }
     }
 
     int found_value;
@@ -305,49 +315,52 @@ void create_config()
     if(err == CONFIG_FALSE)
     { 
         printf("Ошибка конфигурационного файла:\tколичество каналов не задано!\n");
-        printf("Установлено значение по-умолчанию\n");
-        g_channel_count = DEFAULT_CHANNEL_COUNT;
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
     }
 
     err = config_lookup_float(&cfg, "adc_freq", &g_adc_freq);
     if(err == CONFIG_FALSE)
     { 
         printf("Ошибка конфигурационного файла:\tчастота сбора АЦП не задана!\n");
-        printf("Установлено значение по-умолчанию\n");
-        g_adc_freq = DEFAULT_FREQUANCY;
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
     }
     
     err = config_lookup_int(&cfg, "read_block_size", &g_read_block_size);
     if(err == CONFIG_FALSE)
     { 
         printf("Ошибка конфигурационного файла:\tразмер блока для чтения не задан!\n");
-        printf("Установлено значение по-умолчанию\n");
-        g_read_block_size = DEFAULT_READ_BLOCK_SIZE;
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
     }
     
     err = config_lookup_int(&cfg, "read_timeout", &g_read_timeout);
     if(err == CONFIG_FALSE)
     { 
         printf("Ошибка конфигурационного файла:\tвремя задержки перед чтением блока не задано!\n");
-        printf("Установлено значение по-умолчанию\n");
-        g_read_timeout = DEFAULT_READ_TIMEOUT;
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
     }
 
     config_setting_t *channel_numbers = config_lookup(&cfg, "channel_numbers");
     if(channel_numbers == NULL)
     {
         printf("Ошибка конфигурационного файла:\tномера каналов не заданы!\n");
-        printf("Установлено значение по-умолчанию\n");
-        set_default_channel_numbers();
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
+    }
 
-    } else {
+    g_channel_numbers = (int*)malloc(sizeof(int)*g_channel_count);
 
-        g_channel_numbers = (int*)malloc(sizeof(int)*g_channel_count);
-
-        for(int i = 0; i < g_channel_count; i++)
-        {
-            g_channel_numbers[i] = config_setting_get_int_elem(channel_numbers, i);
-        }
+    for(int i = 0; i < g_channel_count; i++)
+    {
+        g_channel_numbers[i] = config_setting_get_int_elem(channel_numbers, i);
     }
 
     config_setting_t *channel_modes = config_lookup(&cfg, "channel_modes");
@@ -355,17 +368,17 @@ void create_config()
     {
         
         printf("Ошибка конфигурационного файла:\tрежимы каналов не заданы!\n");
-        printf("Установлено значение по-умолчанию\n");
-        set_default_channel_modes();
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
 
-    } else {
+    }
 
-        g_channel_modes = (int*)malloc(sizeof(int)*g_channel_count);
+    g_channel_modes = (int*)malloc(sizeof(int)*g_channel_count);
 
-        for(int i = 0; i < g_channel_count; i++)
-        {
-            g_channel_modes[i] = config_setting_get_int_elem(channel_modes, i);
-        }
+    for(int i = 0; i < g_channel_count; i++)
+    {
+        g_channel_modes[i] = config_setting_get_int_elem(channel_modes, i);
     }
 
     config_setting_t *channel_ranges = config_lookup(&cfg, "channel_ranges");
@@ -373,18 +386,87 @@ void create_config()
     {
         
         printf("Ошибка конфигурационного файла:\tдиапазоны каналов не заданы!\n");
-        printf("Установлено значение по-умолчанию\n");
-        set_default_channel_ranges();
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
 
-    } else {
-
-        g_channel_ranges = (int*)malloc(sizeof(int)*g_channel_count);
-
-        for(int i = 0; i < g_channel_count; i++)
-        {
-            g_channel_ranges[i] = config_setting_get_int_elem(channel_ranges, i);
-        }
     }
+
+    g_channel_ranges = (int*)malloc(sizeof(int)*g_channel_count);
+
+    for(int i = 0; i < g_channel_count; i++)
+    {
+        g_channel_ranges[i] = config_setting_get_int_elem(channel_ranges, i);
+    }
+
+    char* bd;
+    err = config_lookup_string(&cfg, "bin_dir", &bd);
+    if(err == CONFIG_FALSE)
+    {
+        printf("Ошибка конфигурационного файла:\t директория для выходных файлов не задана\n");
+        config_destroy(&cfg);
+
+        return READ_CONFIG_ERROR;
+    }
+
+    strcpy(g_bin_dir, bd);
+
+    char *mn;
+    err = config_lookup_string(&cfg, "module_name", &mn);
+    if(err == CONFIG_FALSE)
+    {
+        printf("Ошибка конфигурационного файла:\tмодель АЦП не задана!\n");
+        config_destroy(&cfg);
+
+        return READ_CONFIG_ERROR;
+    }
+
+    strcpy(g_module_name, mn);
+
+    char *pn;
+    err = config_lookup_string(&cfg, "place_name", &pn);
+    if(err == CONFIG_FALSE)
+    {
+        printf("Ошибка конфигурационного файла:\t место работы АЦП не задано!\n");
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
+    }
+
+    strcpy(g_place_name, pn);
+
+    char *pc;
+    err = config_lookup_string(&cfg, "place_coordinates", &pc);
+    if(err == CONFIG_FALSE)
+    {
+        printf("Ошибка конфигурационного файла:\tоординаты места работы не заданы!\n");
+
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
+    }
+
+    strcpy(g_place_coordinates, pc);
+
+    config_setting_t *channel_names = config_lookup(&cfg, "channel_names");
+    if(channel_ranges == NULL)
+    {
+        
+        printf("Ошибка конфигурационного файла:\tназвания каналов не заданы!\n");
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
+
+    }
+
+    g_channel_names = (char**)malloc(sizeof(char*)*g_channel_count);
+
+    for(int i = 0; i < g_channel_count; i++)
+    {
+        g_channel_names[i] = (char*)malloc(sizeof(char)*10);
+
+        strcpy(g_channel_names[i], config_setting_get_string_elem(channel_names, i));
+    }
+
 
     config_destroy(&cfg);
 }
@@ -417,6 +499,18 @@ void print_config()
         printf("%d ", g_channel_ranges[i]);
     }
     printf("]\n");
+    
+    printf(" Директория выходных файлов\t\t\t\t:%s\n", g_bin_dir);
+    printf(" Модель АЦП\t\t\t\t\t\t:%s\n", g_module_name);
+    printf(" Координаты текущего места работы АЦП\t\t\t:%s\n", g_place_coordinates);
+    
+    printf(" Названия используемых каналов\t\t\t\t:[ ");
+    for(int i = 0; i<g_channel_count; ++i)
+    {
+        printf("%s ", g_channel_names[i]);
+    }
+    printf("]\n");
+
 }
 
 int configure_module()
@@ -459,25 +553,48 @@ int configure_module()
 
 void free_memory()
 {
-    destroy_pdouble_queue(&g_pd_queue);
-
+    if(g_pd_queue != NULL) { destroy_pdouble_queue(&g_pd_queue); }
     if(g_channel_numbers != NULL){ free(g_channel_numbers);}
     if(g_channel_modes != NULL){ free(g_channel_modes);}
     if(g_channel_ranges != NULL){ free(g_channel_ranges);}
-    if(g_bin_dir != NULL){ free(g_bin_dir);}   
     if(g_hnd != NULL)
     {
         X502_Close(g_hnd);
         X502_Free(g_hnd);
     }     
+    
+    if(g_channel_names != NULL){
+        for(int i = 0; i < g_channel_count; i++)
+        {
+            free(g_channel_names[i]);
+        }
+        free(g_channel_names);
+    }
 }
 
 void close_files()
 {
+    struct tm *ts; // time of finish recording
+    
+    ts = gmtime(&g_time_end.tv_sec);
+        
+    g_header.finish_hour    = ts->tm_hour;
+    g_header.finish_minut   = ts->tm_min;
+    g_header.finish_second  = ts->tm_sec;
+    g_header.finish_msecond = (int)g_time_start.tv_usec;
 
-    // g_header->finish_hour = g_time_end->
+    for(int i = 0; i < g_channel_count; ++i){ 
+        fseek(g_files[i], 0, SEEK_SET);
 
-    for(int i = 0; i < g_channel_count; ++i){ fclose(g_files[i]); }
+        g_header.mode = g_channel_modes[i];
+        g_header.channel_range = g_channel_ranges[i];
+        g_header.channel_number = g_channel_numbers[i];
+        strcpy(g_header.channel_name, g_channel_names[i]);
+
+        fwrite(&g_header, sizeof(header), 1, g_files[i]);
+
+        fclose(g_files[i]);
+    }
 }
 
 /* 
@@ -549,13 +666,19 @@ int create_files()
 
     // part of structure "header" fileds
     // another part will be initialize in close_files() function
-    g_header.year          = 1900 + ts->tm_year;
-    g_header.month         = ts->tm_mon;
-    g_header.day           = ts->tm_mday;
-    g_header.start_hour    = ts->tm_hour;
-    g_header.start_minut   = ts->tm_min;
-    g_header.start_second  = ts->tm_sec;
-    g_header.start_msecond = (int)g_time_start.tv_usec;
+    g_header.year               = 1900 + ts->tm_year;
+    g_header.month              = ts->tm_mon;
+    g_header.day                = ts->tm_mday;
+    g_header.start_hour         = ts->tm_hour;
+    g_header.start_minut        = ts->tm_min;
+    g_header.start_second       = ts->tm_sec;
+    g_header.start_msecond      = (int)g_time_start.tv_usec;
+    g_header.adc_freq           = g_adc_freq / g_channel_count;
+    strcpy(g_header.module_name, g_module_name);
+    strcpy(g_header.place_name, g_place_name);
+    strcpy(g_header.place_coordinates, g_place_coordinates);
+    // g_header.module_name        = g_module_name;       
+    // g_header.place_cordinates   = g_place_coordinates;   
     // --------------------------------------------------
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
@@ -574,12 +697,15 @@ int create_files()
                 g_channel_numbers[i]);
 
         g_files[i] = fopen(file_name, "wb");
-        // write headers
+        
+        // Skip sizeof(header) byte, becouse we wright header, 
+        // when will be know time of finish recording file
+        fseek(g_files[i], sizeof(header), SEEK_SET);
     }
 
 
 
-    return CREATE_OUT_FILES_ERROR;
+    return CREATE_OUT_FILES_OK;
 }
 
 void* write_data(void *arg)
@@ -602,10 +728,6 @@ void* write_data(void *arg)
 
         if(data != NULL)
         {
-                    printf("Data: = %p, Size = %d\n", data, size);
-            // set_buffer_state(BUFFER_EMPTY);
-            // get_current_buffer_size(&size);
-
             rem = size % g_channel_count;
             for(data_cntr = 0; data_cntr < size; data_cntr += g_channel_count)
             {
@@ -633,7 +755,7 @@ void* write_data(void *arg)
             if(current_file_size > total_file_size)
             {
                 close_files();
-                g_stop = 1;
+                g_stop = 1; //for testing 
                 // create_files();
             }
         } 
@@ -642,11 +764,23 @@ void* write_data(void *arg)
 
 int main(int argc, char** argv)
 {
+    printf("Размер заголовка выходного файла: %d\n", sizeof(int));
     create_stop_event_handler();
 
     g_pd_queue = create_pdouble_queue();
 
-    create_config();
+    uint32_t err = create_config();
+
+    if( err != READ_CONFIG_OK )
+    {
+        err = create_default_config();
+        if ( err != READ_CONFIG_OK )
+        {
+            printf("Не удалось создать конфигурацию по-умолчанию!\n");
+            return err;
+        }
+        
+    }
 
     print_config();
 
@@ -717,7 +851,7 @@ int main(int argc, char** argv)
 
     configure_module();
 
-    uint32_t err = X502_StreamsStart(g_hnd);
+    err = X502_StreamsStart(g_hnd);
     if(err != X502_ERR_OK)
     {
         fprintf(stderr,
@@ -772,7 +906,7 @@ int main(int argc, char** argv)
 
         adc_size = sizeof(double)*g_read_block_size;
         
-        printf("rcv_size = %d   adc_size = %d\n", rcv_size, adc_size);
+        // printf("rcv_size = %d   adc_size = %d\n", rcv_size, adc_size);
 
         err = X502_ProcessData(g_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                data, &adc_size, NULL, NULL);
@@ -790,6 +924,7 @@ int main(int argc, char** argv)
         push(g_pd_queue, &data, rcv_size);
     }
 
+    close_files();
     free_memory();
     
     return EXECUTE_OK;  

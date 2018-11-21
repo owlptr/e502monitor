@@ -9,7 +9,7 @@ typedef struct {
 
     struct pdq_node* next;
 
-}pdq_node ;
+}pdq_node;
 
 typedef struct{
     pdq_node* head;
