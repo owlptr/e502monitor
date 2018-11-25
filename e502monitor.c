@@ -1,6 +1,6 @@
-// For work with Lcard E-502 device
+/* For work with Lcard E-502 device */
 #include "e502api.h"
-// --------------------------------
+/* -------------------------------- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,16 +48,15 @@ typedef struct {
         int      finish_minut;           // Minut of finish of the recording
         int      start_second;           // Second of start of the recording
         int      finish_second;          // Second of finish of the recording
-        int      start_msecond;          // Milliseconds of start recording
-        int      finish_msecond;         // Milliseconds of finish recording
+        int      start_usecond;          // Microseconds of start recording
+        int      finish_usecond;         // Microseconds of finish recording
         int      channel_number;         // Number of used channel 
         double   adc_freq;               // Frequancy of ADC
         int      mode;                   // Operation mode 
-        char     module_name[10];        // Name of using ADC 
+        char     module_name[51];        // Name of using ADC 
         int      channel_range;          // Channel measurement range
-        char     place_name[10];         // Name of the recording place
-        char     place_coordinates[10];  // Coordinates of the recoding place 
-        char     channel_name[10];       // Name of channel
+        char     place[101];             // Place of recording
+        char     channel_name[51];       // Name of channel
     } header;
 
 // ---------------------GLOBAL VARIABLES---------------------------------
@@ -79,10 +78,9 @@ int    g_read_timeout;                  // Timeout for receiving data in ms.
 int*   g_channel_numbers       = NULL;  // Numbers of using logical channels
 int*   g_channel_modes         = NULL;  // Operation modes for channels
 int*   g_channel_ranges        = NULL;  // Channel measurement range
-char   g_bin_dir[10]           = "";  // Directory of output bin files
-char   g_module_name[10]       = "";    // Name of using module
-char   g_place_name[10]        = "";    // Name of the recording place
-char   g_place_coordinates[10] = "";    // Coordinates of the recording place
+char   g_bin_dir[101]          = "";  // Directory of output bin files
+char   g_module_name[51]       = "";    // Name of using module
+char   g_place[101]            = "";    // Name of the recording place
 char** g_channel_names         = NULL;  // Names of using channels 
 
 t_x502_hnd* g_hnd = NULL; // module heandler
@@ -246,21 +244,18 @@ int create_default_config()
         "# Количество значений должно равняться channel_count\n",
         "channel_ranges = [2]\n",
         "\n",
-        "# Директория для выходных бинарных файлов\n", 
+        "# Директория для выходных бинарных файлов (Максимум 100 символов)\n", 
         "bin_dir = \"/data\"\n",
         "\n",
-        "# Модель АЦП\n",
+        "# Модель АЦП (Максимум 50 символов)\n",
         "module_name = \"Lcard E-502\"\n",
         "\n",
-        "# Место текущей работы АЦП\n",
-        "place_name = \"IKIR FEB RAS\"\n",
-        "\n",
-        "# Координаты текущего места работы АЦП:\n",
-        "# широта:долгота\n",
-        "place_coordinates = \"00:00\"\n",
+        "# Место текущей работы АЦП (Максимум 100 символов)\n",
+        "place = \"IKIR FEB RAS\"\n",
         "\n",
         "# Названия используемых каналов\n",
         "# Количество значений должно равняться channel_count\n",
+        "# (Каждый максимум: 50 символов)\n",
         "channel_names = [\"ch0\"]\n"
     };
 
@@ -423,8 +418,8 @@ int create_config()
 
     strcpy(g_module_name, mn);
 
-    char *pn;
-    err = config_lookup_string(&cfg, "place_name", &pn);
+    char *p;
+    err = config_lookup_string(&cfg, "place", &p);
     if(err == CONFIG_FALSE)
     {
         printf("Ошибка конфигурационного файла:\t место работы АЦП не задано!\n");
@@ -433,19 +428,7 @@ int create_config()
         return READ_CONFIG_ERROR;
     }
 
-    strcpy(g_place_name, pn);
-
-    char *pc;
-    err = config_lookup_string(&cfg, "place_coordinates", &pc);
-    if(err == CONFIG_FALSE)
-    {
-        printf("Ошибка конфигурационного файла:\tоординаты места работы не заданы!\n");
-
-        config_destroy(&cfg);
-        return READ_CONFIG_ERROR;
-    }
-
-    strcpy(g_place_coordinates, pc);
+    strcpy(g_place, pn);
 
     config_setting_t *channel_names = config_lookup(&cfg, "channel_names");
     if(channel_ranges == NULL)
@@ -471,6 +454,9 @@ int create_config()
     config_destroy(&cfg);
 }
 
+/*
+    Print information about set config
+*/
 void print_config()
 {
     printf("\nЗагружена следующая конфигурация модуля:\n");
@@ -551,6 +537,9 @@ int configure_module()
     return CONFIGURE_OK;
 }
 
+/*
+    Free memory from some global variables
+*/
 void free_memory()
 {
     if(g_pd_queue != NULL) { destroy_pdouble_queue(&g_pd_queue); }
@@ -572,6 +561,9 @@ void free_memory()
     }
 }
 
+/*
+    Finish writing data-files
+*/
 void close_files()
 {
     struct tm *ts; // time of finish recording
@@ -581,11 +573,17 @@ void close_files()
     g_header.finish_hour    = ts->tm_hour;
     g_header.finish_minut   = ts->tm_min;
     g_header.finish_second  = ts->tm_sec;
-    g_header.finish_msecond = (int)g_time_start.tv_usec;
+    g_header.finish_usecond = (int)g_time_start.tv_usec;
 
     for(int i = 0; i < g_channel_count; ++i){ 
-        fseek(g_files[i], 0, SEEK_SET);
 
+        // set pointer in stream to begin
+        // it's necessary, because information, which
+        // represented by sctructure header
+        // must be placed in the begin of data-file 
+        fseek(g_files[i], 0, SEEK_SET);
+        
+        // initialize some header values
         g_header.mode = g_channel_modes[i];
         g_header.channel_range = g_channel_ranges[i];
         g_header.channel_number = g_channel_numbers[i];
@@ -654,6 +652,9 @@ int print_info_about_module()
     return err;
 }
 
+/*
+    Create files for writing data
+*/
 int create_files()
 {
     struct tm *ts; // time of start recording
@@ -672,7 +673,7 @@ int create_files()
     g_header.start_hour         = ts->tm_hour;
     g_header.start_minut        = ts->tm_min;
     g_header.start_second       = ts->tm_sec;
-    g_header.start_msecond      = (int)g_time_start.tv_usec;
+    g_header.start_usecond      = (int)g_time_start.tv_usec;
     g_header.adc_freq           = g_adc_freq / g_channel_count;
     strcpy(g_header.module_name, g_module_name);
     strcpy(g_header.place_name, g_place_name);
@@ -722,9 +723,7 @@ void* write_data(void *arg)
 
     while(!g_stop)
     {
-        // get_buffer_state(&buffer_state);
-
-        pop(g_pd_queue, &data, &size);
+        pop_from_pdqueue(g_pd_queue, &data, &size);
 
         if(data != NULL)
         {
@@ -764,7 +763,7 @@ void* write_data(void *arg)
 
 int main(int argc, char** argv)
 {
-    printf("Размер заголовка выходного файла: %d\n", sizeof(int));
+    printf("Размер заголовка выходного файла: %d\n", sizeof(header));
     create_stop_event_handler();
 
     g_pd_queue = create_pdouble_queue();
@@ -913,7 +912,7 @@ int main(int argc, char** argv)
 
         // if need create new files store moment of
         // reading new block data
-        curent_file_size += rcv_size;
+        curent_file_size += rcv_size / g_channel_numbers;
         if( rcv_size > total_file_size )
         { 
             curent_file_size = 0;
@@ -921,7 +920,7 @@ int main(int argc, char** argv)
             gettimeofday(&g_time_end, NULL);
         }
 
-        push(g_pd_queue, &data, rcv_size);
+        push_to_queue(g_pd_queue, &data, rcv_size);
     }
 
     close_files();

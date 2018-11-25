@@ -22,8 +22,8 @@ typedef struct{
 
 pdouble_queue* create_pdouble_queue();
 
-void push(pdouble_queue *pd_queue, double** data, int size);
-void pop(pdouble_queue *pd_queue, double** data, int *size);
+void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size);
+void pop_from_pdqueue(pdouble_queue *pd_queue, double** data, int *size);
 
 void destroy_pdouble_queue(pdouble_queue **pd_queue);
 

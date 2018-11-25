@@ -15,7 +15,7 @@ pdouble_queue* create_pdouble_queue()
     return pd_queue;
 }
 
-void push(pdouble_queue *pd_queue, double** data, int size)
+void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size)
 {
     pthread_mutex_lock(&(pd_queue->mutex));
     pdq_node* pdn = (pdq_node*)malloc(sizeof(pdq_node));
@@ -37,13 +37,13 @@ void push(pdouble_queue *pd_queue, double** data, int size)
     pthread_mutex_unlock(&(pd_queue->mutex));
 }
 
-void pop(pdouble_queue *pd_queue, double **data, int *size)
+void pop_from_pdqueue(pdouble_queue *pd_queue, double **data, int *size)
 {
     pthread_mutex_lock(&(pd_queue->mutex));
     
     if(pd_queue->head == NULL){
         *data = NULL;
-        size = -1;
+        *size = -1;
     } else { 
         pdq_node* pop_node = pd_queue->head;
         pd_queue->head = pd_queue->head->next; 
