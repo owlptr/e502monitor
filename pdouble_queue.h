@@ -7,6 +7,11 @@ typedef struct {
     double* data;
     int size;
 
+    int first_lch; // number of logical channel
+                        // to which correspond first
+                        // countodwn in the array <<data>>
+                        // in the next pdq_node
+
     struct pdq_node* next;
 
 }pdq_node;
@@ -22,8 +27,15 @@ typedef struct{
 
 pdouble_queue* create_pdouble_queue();
 
-void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size);
-void pop_from_pdqueue(pdouble_queue *pd_queue, double** data, int *size);
+void push_to_pdqueue(pdouble_queue *pd_queue,
+                     double** data,
+                     int size,
+                     int first_lch);
+
+void pop_from_pdqueue(pdouble_queue *pd_queue,
+                      double** data,
+                      int *size,
+                      int *first_lch);
 
 void destroy_pdouble_queue(pdouble_queue **pd_queue);
 
