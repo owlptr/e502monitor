@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import array
 import struct
 
-file = open('2018_10_21-00:14:21:754952-0', 'rb')
+file = open('data/2018_10_26-04:23:06:726050-0', 'rb')
 
 year            = file.read(4)
 month           = file.read(4)
@@ -22,9 +22,10 @@ finish_usecond  = file.read(4)
 channel_number  = file.read(4)
 freq            = file.read(8)
 mode            = file.read(4)
-module_name     = file.read(11).decode("utf-8")
-range           = file.read(4)
-place_name      = file.read(15).decode("utf-8")
+ch_range        = file.read(4)
+module_name     = file.read(51).decode("utf-8")
+place_name      = file.read(101).decode("utf-8")
+channel_name    = file.read(51).decode("utf-8")
 
 year            = int.from_bytes(year, byteorder='little')
 month           = int.from_bytes(month, byteorder='little') 
@@ -40,7 +41,7 @@ finish_usecond  = int.from_bytes(finish_usecond, byteorder='little')
 channel_number  = int.from_bytes(channel_number, byteorder='little')
 freq            = struct.unpack('d', freq)[0]
 mode            = int.from_bytes(mode, byteorder='little')
-range           = int.from_bytes(range, byteorder='little')
+ch_range        = int.from_bytes(ch_range, byteorder='little')
 
 print("Время начала записи -->\t\t" + str(year) + ":" + \
        str(start_hour) + ":" + str(start_minut) + ":"  + \
@@ -55,19 +56,19 @@ print("Номер канала --> \t\t" + str(channel_number))
 print("Частота --> \t\t\t" + str(freq))
 print("Режим измерения --> \t\t" + str(mode))
 print("Модель АЦП --> \t\t\t" + module_name)
-print("Диапазон измерения --> \t\t" + str(range))
+print("Диапазон измерения --> \t\t" + str(ch_range))
 print("Место измерения --> \t\t" + place_name)
-# # byte_data = file.read(16000)
+print("Имя канала --> \t\t\t" + channel_name)
+
+file.read(5)
+
+byte_data = file.read(800)
 
 file.close()
 
-# double_data = array.array('d', byte_data)
+double_data = array.array('d', byte_data)
 
-# # for d in double_data:
-#     # print(d)
+fig, ax = plt.subplots()
+ax.plot(double_data)
 
-
-# fig, ax = plt.subplots()
-# ax.plot(double_data)
-
-# plt.show()
+plt.show()

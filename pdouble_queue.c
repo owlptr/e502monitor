@@ -9,13 +9,17 @@ pdouble_queue* create_pdouble_queue()
     
     pd_queue->head = NULL;
     pd_queue->tail = NULL;
+    pd_queue->size = 0;
 
     pthread_mutex_init(&(pd_queue->mutex), NULL);
 
     return pd_queue;
 }
 
-void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size)
+void push_to_pdqueue(pdouble_queue *pd_queue,
+                     double** data,
+                     int size,
+                     int first_lch)
 {
     pthread_mutex_lock(&(pd_queue->mutex));
     pdq_node* pdn = (pdq_node*)malloc(sizeof(pdq_node));
@@ -23,6 +27,7 @@ void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size)
     pdn->next = NULL;
     pdn->data = *data;
     pdn->size = size;
+    pdn->first_lch = first_lch;
 
     if(pd_queue->head == NULL)
     {
@@ -34,10 +39,15 @@ void push_to_pdqueue(pdouble_queue *pd_queue, double** data, int size)
         pd_queue->tail = pdn;
     }
 
+    pd_queue->size++;
+
     pthread_mutex_unlock(&(pd_queue->mutex));
 }
 
-void pop_from_pdqueue(pdouble_queue *pd_queue, double **data, int *size)
+void pop_from_pdqueue(pdouble_queue *pd_queue,
+                      double **data,
+                      int *size,
+                      int *first_lch)
 {
     pthread_mutex_lock(&(pd_queue->mutex));
     
@@ -50,6 +60,10 @@ void pop_from_pdqueue(pdouble_queue *pd_queue, double **data, int *size)
 
         *data = pop_node->data;
         (*size) = pop_node->size;
+
+        *first_lch = pop_node->first_lch;
+
+        pd_queue->size--;
 
         free(pop_node);
     }

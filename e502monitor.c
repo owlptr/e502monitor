@@ -53,13 +53,13 @@ typedef struct {
         int      channel_number;         // Number of used channel 
         double   adc_freq;               // Frequancy of ADC
         int      mode;                   // Operation mode 
-        char     module_name[51];        // Name of using ADC 
         int      channel_range;          // Channel measurement range
+        char     module_name[51];        // Name of using ADC 
         char     place[101];             // Place of recording
         char     channel_name[51];       // Name of channel
     } header;
 
-// ---------------------GLOBAL VARIABLES---------------------------------
+// ---------------------GLOBAL VARIABLES-------------------------------------
 FILE** g_files = NULL;           // Descriptors of ouput binary files
 
 header g_header; 
@@ -86,7 +86,7 @@ char** g_channel_names         = NULL;  // Names of using channels
 t_x502_hnd* g_hnd = NULL; // module heandler
 
 int g_stop = 0; // if equal 1 - stop working
-//----------------------------------------------------------------------
+//---------------------------------------------------------------------------
 
 // Signal of completion                 
 void abort_handler(int sig){ g_stop = 1; }
@@ -428,7 +428,7 @@ int create_config()
         return READ_CONFIG_ERROR;
     }
 
-    strcpy(g_place, pn);
+    strcpy(g_place, p);
 
     config_setting_t *channel_names = config_lookup(&cfg, "channel_names");
     if(channel_ranges == NULL)
@@ -488,7 +488,7 @@ void print_config()
     
     printf(" Директория выходных файлов\t\t\t\t:%s\n", g_bin_dir);
     printf(" Модель АЦП\t\t\t\t\t\t:%s\n", g_module_name);
-    printf(" Координаты текущего места работы АЦП\t\t\t:%s\n", g_place_coordinates);
+    printf(" Текущее место работы\t\t\t\t\t:%s\n", g_place);
     
     printf(" Названия используемых каналов\t\t\t\t:[ ");
     for(int i = 0; i<g_channel_count; ++i)
@@ -583,7 +583,7 @@ void close_files()
         // must be placed in the begin of data-file 
         fseek(g_files[i], 0, SEEK_SET);
         
-        // initialize some header values
+        // // initialize some header values
         g_header.mode = g_channel_modes[i];
         g_header.channel_range = g_channel_ranges[i];
         g_header.channel_number = g_channel_numbers[i];
@@ -663,8 +663,6 @@ int create_files()
 
     g_files = (FILE*)malloc(sizeof(FILE*)*g_channel_count);
 
-    char file_name[100];
-
     // part of structure "header" fileds
     // another part will be initialize in close_files() function
     g_header.year               = 1900 + ts->tm_year;
@@ -676,18 +674,18 @@ int create_files()
     g_header.start_usecond      = (int)g_time_start.tv_usec;
     g_header.adc_freq           = g_adc_freq / g_channel_count;
     strcpy(g_header.module_name, g_module_name);
-    strcpy(g_header.place_name, g_place_name);
-    strcpy(g_header.place_coordinates, g_place_coordinates);
-    // g_header.module_name        = g_module_name;       
-    // g_header.place_cordinates   = g_place_coordinates;   
+    strcpy(g_header.place, g_place); 
     // --------------------------------------------------
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
 
     for(int i = 0; i < g_channel_count; ++i)
-    {
+    {  
+        char file_name[500] = "";
+        
         sprintf(file_name, 
-                "%d_%02d_%02d-%02d:%02d:%02d:%06d-%d",
+                "%s/%d_%02d_%02d-%02d:%02d:%02d:%06d-%d",
+                g_bin_dir,
                 1900 + ts->tm_year,
                 ts->tm_mon,
                 ts->tm_mday,
@@ -711,41 +709,32 @@ int create_files()
 
 void* write_data(void *arg)
 {
-    int ch_cntr, data_cntr, rem_cntr; // counters
+    int ch_cntr, data_cntr; // counters
     int size;
-    int total_file_size = FILE_TIME * g_adc_freq;
+    int total_file_size = FILE_TIME * g_adc_freq / g_channel_count;
     int buffer_state;
-    int rem;
 
     int current_file_size = 0;
 
-    double *data;
+    double *data = NULL;
 
     while(!g_stop)
     {
-        pop_from_pdqueue(g_pd_queue, &data, &size);
+        pop_from_pdqueue(g_pd_queue, &data, &size, &ch_cntr);
 
         if(data != NULL)
-        {
-            rem = size % g_channel_count;
-            for(data_cntr = 0; data_cntr < size; data_cntr += g_channel_count)
-            {
-                for(ch_cntr = 0; ch_cntr < g_channel_count; ++ch_cntr)
-                {
-                    fwrite(&data[data_cntr],
-                           sizeof(double),
-                           1,
-                           g_files[ch_cntr]);
-                }
-            }
+        {   
+            for(data_cntr = 0; data_cntr < 2; data_cntr++, ch_cntr++)
+            {                               
+                if(ch_cntr == g_channel_count){ ch_cntr = 0; } 
+                
+                printf("Канал: %d, значени: %f\n", ch_cntr, data[data_cntr]);
 
-            for(rem_cntr = rem, ch_cntr = 0; rem_cntr != 0; --rem_cntr, ++ch_cntr)
-            {
-                    fwrite(&data[size - rem_cntr],
-                           sizeof(double),
-                           1,
-                           g_files[ch_cntr]);
-            }
+                fwrite(&data[data_cntr],
+                        sizeof(double),
+                        1,
+                        g_files[ch_cntr]);
+            }                
 
             free(data);
 
@@ -814,7 +803,7 @@ int main(int argc, char** argv)
     }
 
 
-    //------------------------------- chose lcard device for working---------------------------
+    //------------------------------- choose lcard device for working--------------------------
     printf("Введите номер модуля, с которым хотите работать (от 0 до %d)\n", fnd_devcnt-1);
     fflush(stdout);
 
@@ -882,7 +871,7 @@ int main(int argc, char** argv)
     double* data;
 
     int curent_file_size = 0;
-    int total_file_size = FILE_TIME * g_adc_freq;
+    int total_file_size = FILE_TIME * g_adc_freq / g_channel_count;
 
     gettimeofday(&g_time_start, NULL);
 
@@ -904,26 +893,24 @@ int main(int argc, char** argv)
         X502_GetNextExpectedLchNum(g_hnd, &first_lch);
 
         adc_size = sizeof(double)*g_read_block_size;
-        
-        // printf("rcv_size = %d   adc_size = %d\n", rcv_size, adc_size);
 
         err = X502_ProcessData(g_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                data, &adc_size, NULL, NULL);
 
         // if need create new files store moment of
         // reading new block data
-        curent_file_size += rcv_size / g_channel_numbers;
-        if( rcv_size > total_file_size )
+        curent_file_size += rcv_size / g_channel_count;
+        if( curent_file_size > total_file_size )
         { 
             curent_file_size = 0;
             gettimeofday(&g_time_start, NULL);
             gettimeofday(&g_time_end, NULL);
         }
 
-        push_to_queue(g_pd_queue, &data, rcv_size);
+        push_to_pdqueue(g_pd_queue, &data, rcv_size, first_lch);
     }
 
-    close_files();
+    // close_files();
     free_memory();
     
     return EXECUTE_OK;  
