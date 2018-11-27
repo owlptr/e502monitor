@@ -1,3 +1,7 @@
+/*
+    Author: Gapeev Maksim
+*/
+
 #include "pdouble_queue.h"
 
 #include <stdlib.h>
@@ -40,6 +44,8 @@ void push_to_pdqueue(pdouble_queue *pd_queue,
     }
 
     pd_queue->size++;
+
+    // printf("pd_queue->size = %d\n", pd_queue->size);
 
     pthread_mutex_unlock(&(pd_queue->mutex));
 }

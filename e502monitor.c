@@ -1,3 +1,7 @@
+/*
+    Author: Gapeev Maksim
+*/
+
 /* For work with Lcard E-502 device */
 #include "e502api.h"
 /* -------------------------------- */
@@ -13,8 +17,8 @@
 
 #include "pdouble_queue.h"
 
-// #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
-#define FILE_TIME 30
+#define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
+// #define FILE_TIME 30
 
 #define MAX_CHANNELS 16
 
@@ -68,17 +72,18 @@ pdouble_queue*  g_pd_queue = NULL; // queue for store read data
 
 struct timeval g_time_start; 
 struct timeval g_time_end;
+// struct timeval g_buf_time_start;
 
 int g_channel_count;            // Count of use logical chnnels
 double g_adc_freq;              // Frequency descritization
 int g_read_block_size;          // The size of the data block 
-                                    //  that is read at once from the ADC
+                                   //  that is read at once from the ADC
              
 int    g_read_timeout;                  // Timeout for receiving data in ms.
 int*   g_channel_numbers       = NULL;  // Numbers of using logical channels
 int*   g_channel_modes         = NULL;  // Operation modes for channels
 int*   g_channel_ranges        = NULL;  // Channel measurement range
-char   g_bin_dir[101]          = "";  // Directory of output bin files
+char   g_bin_dir[101]          = "";    // Directory of output bin files
 char   g_module_name[51]       = "";    // Name of using module
 char   g_place[101]            = "";    // Name of the recording place
 char** g_channel_names         = NULL;  // Names of using channels 
@@ -543,9 +548,9 @@ int configure_module()
 void free_memory()
 {
     if(g_pd_queue != NULL) { destroy_pdouble_queue(&g_pd_queue); }
-    if(g_channel_numbers != NULL){ free(g_channel_numbers);}
-    if(g_channel_modes != NULL){ free(g_channel_modes);}
-    if(g_channel_ranges != NULL){ free(g_channel_ranges);}
+    if(g_channel_numbers != NULL){ free(g_channel_numbers); }
+    if(g_channel_modes != NULL){ free(g_channel_modes); }
+    if(g_channel_ranges != NULL){ free(g_channel_ranges); }
     if(g_hnd != NULL)
     {
         X502_Close(g_hnd);
@@ -553,10 +558,12 @@ void free_memory()
     }     
     
     if(g_channel_names != NULL){
+        
         for(int i = 0; i < g_channel_count; i++)
         {
             free(g_channel_names[i]);
         }
+
         free(g_channel_names);
     }
 }
@@ -573,7 +580,7 @@ void close_files()
     g_header.finish_hour    = ts->tm_hour;
     g_header.finish_minut   = ts->tm_min;
     g_header.finish_second  = ts->tm_sec;
-    g_header.finish_usecond = (int)g_time_start.tv_usec;
+    g_header.finish_usecond = (int)g_time_end.tv_usec;
 
     for(int i = 0; i < g_channel_count; ++i){ 
 
@@ -675,7 +682,7 @@ int create_files()
     g_header.adc_freq           = g_adc_freq / g_channel_count;
     strcpy(g_header.module_name, g_module_name);
     strcpy(g_header.place, g_place); 
-    // --------------------------------------------------
+    // ---------------------------------------------------------
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
 
@@ -724,27 +731,25 @@ void* write_data(void *arg)
 
         if(data != NULL)
         {   
-            for(data_cntr = 0; data_cntr < 2; data_cntr++, ch_cntr++)
-            {                               
-                if(ch_cntr == g_channel_count){ ch_cntr = 0; } 
-                
-                printf("Канал: %d, значени: %f\n", ch_cntr, data[data_cntr]);
-
-                fwrite(&data[data_cntr],
-                        sizeof(double),
-                        1,
-                        g_files[ch_cntr]);
-            }                
-
-            free(data);
-
-            current_file_size += size/g_channel_count;
-
-            if(current_file_size > total_file_size)
+            current_file_size += size/g_channel_count;            
+            
+            if(current_file_size >= total_file_size)
             {
+                current_file_size = 0;
                 close_files();
-                g_stop = 1; //for testing 
-                // create_files();
+                create_files();
+            } else {
+                for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
+                {                               
+                    if(ch_cntr == g_channel_count){ ch_cntr = 0; } 
+
+                    fwrite(&data[data_cntr],
+                            sizeof(double),
+                            1,
+                            g_files[ch_cntr]);
+                }                
+
+                free(data);
             }
         } 
     }
@@ -870,10 +875,12 @@ int main(int argc, char** argv)
     
     double* data;
 
-    int curent_file_size = 0;
     int total_file_size = FILE_TIME * g_adc_freq / g_channel_count;
 
+    int current_file_size = 0;
+
     gettimeofday(&g_time_start, NULL);
+    // g_buf_time_start = g_time_start;
 
     err = create_files();
 
@@ -890,6 +897,8 @@ int main(int argc, char** argv)
 
         rcv_size = X502_Recv(g_hnd, rcv_buf, g_read_block_size, g_read_timeout);
 
+        // printf("RCV_SIZE: %d\n", rcv_size);
+
         X502_GetNextExpectedLchNum(g_hnd, &first_lch);
 
         adc_size = sizeof(double)*g_read_block_size;
@@ -899,10 +908,13 @@ int main(int argc, char** argv)
 
         // if need create new files store moment of
         // reading new block data
-        curent_file_size += rcv_size / g_channel_count;
-        if( curent_file_size > total_file_size )
-        { 
-            curent_file_size = 0;
+        current_file_size += rcv_size / g_channel_count;
+
+        if( current_file_size >= total_file_size )
+        {
+            // printf("Пишу значений в файл: %d\n", current_file_size); 
+            current_file_size = 0;
+            // g_buf_time_start = g_time_start;
             gettimeofday(&g_time_start, NULL);
             gettimeofday(&g_time_end, NULL);
         }

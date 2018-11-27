@@ -1,3 +1,7 @@
+/*
+    Author: Gapeev Maksim
+*/
+
 #ifndef PDOUBLE_QUEUE_H
 #define PDOUBLE_QUEUE_H
 
