@@ -17,8 +17,8 @@
 
 #include "pdouble_queue.h"
 
-#define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
-// #define FILE_TIME 30
+// #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
+#define FILE_TIME 300 // 5 minuts files
 
 #define MAX_CHANNELS 16
 
@@ -250,7 +250,7 @@ int create_default_config()
         "channel_ranges = [2]\n",
         "\n",
         "# Директория для выходных бинарных файлов (Максимум 100 символов)\n", 
-        "bin_dir = \"/data\"\n",
+        "bin_dir = \"data\"\n",
         "\n",
         "# Модель АЦП (Максимум 50 символов)\n",
         "module_name = \"Lcard E-502\"\n",
@@ -691,7 +691,7 @@ int create_files()
         char file_name[500] = "";
         
         sprintf(file_name, 
-                "%s/%d_%02d_%02d-%02d:%02d:%02d:%06d-%d",
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
                 g_bin_dir,
                 1900 + ts->tm_year,
                 ts->tm_mon,
@@ -732,25 +732,25 @@ void* write_data(void *arg)
         if(data != NULL)
         {   
             current_file_size += size/g_channel_count;            
+            for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
+            {                               
+                if(ch_cntr == g_channel_count){ ch_cntr = 0; } 
+
+                fwrite(&data[data_cntr],
+                        sizeof(double),
+                        1,
+                        g_files[ch_cntr]);
+            }                
             
             if(current_file_size >= total_file_size)
             {
                 current_file_size = 0;
                 close_files();
                 create_files();
-            } else {
-                for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
-                {                               
-                    if(ch_cntr == g_channel_count){ ch_cntr = 0; } 
-
-                    fwrite(&data[data_cntr],
-                            sizeof(double),
-                            1,
-                            g_files[ch_cntr]);
-                }                
-
-                free(data);
             }
+
+            free(data);
+            
         } 
     }
 }
@@ -814,7 +814,10 @@ int main(int argc, char** argv)
 
     uint32_t device_id = -1;
 
-    scanf("%d", &device_id);
+    // scanf("%d", &device_id);
+    
+    // HACK: choose device 0 by default
+    device_id = 0;
 
     if( device_id < 0 || device_id >= fnd_devcnt)
     {

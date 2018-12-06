@@ -6,7 +6,11 @@ import matplotlib.pyplot as plt
 import array
 import struct
 
-file = open('data/2018_10_27-00:02:43:534351-0', 'rb')
+import sys
+
+file_name = sys.argv[1]
+
+file = open(file_name, 'rb')
 
 year            = file.read(4)
 month           = file.read(4)
@@ -62,8 +66,8 @@ print("Имя канала --> \t\t\t" + channel_name)
 
 file.read(5)
 
-file.read(3999400)
-byte_data = file.read(800)
+# file.read(3999400)
+byte_data = file.read(8000)
 
 file.close()
 
