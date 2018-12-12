@@ -725,6 +725,8 @@ void* write_data(void *arg)
 
     double *data = NULL;
 
+    int sleep_time = g_read_timeout / 2; 
+
     while(!g_stop)
     {
         pop_from_pdqueue(g_pd_queue, &data, &size, &ch_cntr);
@@ -749,9 +751,10 @@ void* write_data(void *arg)
                 create_files();
             }
 
-            free(data);
-            
+            free(data);   
         } 
+
+        usleep(sleep_time); // sleep to save process time
     }
 }
 
