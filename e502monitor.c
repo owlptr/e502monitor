@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
+// #include <dir.h>
 
 #include <libconfig.h>
 
@@ -88,9 +89,14 @@ char   g_module_name[51]       = "";    // Name of using module
 char   g_place[101]            = "";    // Name of the recording place
 char** g_channel_names         = NULL;  // Names of using channels 
 
+int g_count_of_stored_day; // count of days that be stored
+int g_count_of_day = 0;
+
 t_x502_hnd* g_hnd = NULL; // module heandler
 
 int g_stop = 0; // if equal 1 - stop working
+
+int g_current_day = -1;
 //---------------------------------------------------------------------------
 
 // Signal of completion                 
@@ -261,7 +267,12 @@ int create_default_config()
         "# Названия используемых каналов\n",
         "# Количество значений должно равняться channel_count\n",
         "# (Каждый максимум: 50 символов)\n",
-        "channel_names = [\"ch0\"]\n"
+        "channel_names = [\"ch0\"]\n",
+        "\n",
+        "# Количество дней, которые будут сохраняться.\n",
+        "# Например, если  count_of_day = 3, то будут сохраняться\n",
+        "# два последних дня + текущий\n",
+        "count_of_day = 3 \n"
     };
 
     FILE *cfg_default_file = fopen("e502monitor_default.cfg", "w");
@@ -342,6 +353,15 @@ int create_config()
     if(err == CONFIG_FALSE)
     { 
         printf("Ошибка конфигурационного файла:\tвремя задержки перед чтением блока не задано!\n");
+        
+        config_destroy(&cfg);
+        return READ_CONFIG_ERROR;
+    }
+
+    err = config_lookup_int(&cfg, "count_of_day", &g_count_of_stored_day);
+    if(err == CONFIG_FALSE)
+    { 
+        printf("Ошибка конфигурационного файла:\tвременное окно не задано!\n");
         
         config_destroy(&cfg);
         return READ_CONFIG_ERROR;
@@ -469,7 +489,7 @@ void print_config()
     printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", g_adc_freq);
     printf(" Количество отсчетов, считываемых за блок\t\t:%d\n", g_read_block_size);
     printf(" Таймаут перед считываением блока (мс)\t\t\t:%d\n", g_read_timeout);
-    
+    printf(" Количество сохраняемых дней\t\t\t\t:%d\n", g_count_of_stored_day);
     printf(" Номера используемых каналов\t\t\t\t:[ ");
     for(int i = 0; i<g_channel_count; i++)
     {
@@ -673,7 +693,7 @@ int create_files()
     // part of structure "header" fileds
     // another part will be initialize in close_files() function
     g_header.year               = 1900 + ts->tm_year;
-    g_header.month              = ts->tm_mon;
+    g_header.month              = ts->tm_mon + 1;
     g_header.day                = ts->tm_mday;
     g_header.start_hour         = ts->tm_hour;
     g_header.start_minut        = ts->tm_min;
@@ -683,6 +703,40 @@ int create_files()
     strcpy(g_header.module_name, g_module_name);
     strcpy(g_header.place, g_place); 
     // ---------------------------------------------------------
+    
+    char dir_name[100] = "";
+
+    // create directory for new day files
+    if(g_current_day != ts->tm_mday)
+    {   
+        sprintf(dir_name,
+                "%s/%d_%02d_%02d",
+                g_bin_dir,
+                1900 + ts->tm_year,
+                ts->tm_mon,
+                ts->tm_mday);
+        
+        if(!mkdir(dir_name))
+        {
+            printf("Не могу создать директорию для выходных фалов.\n"
+                   "Ошибка в пути? Нет прав на запись?\n");
+            
+            return CREATE_OUT_FILES_ERROR;
+        }
+
+        g_count_of_day++;
+
+        if( g_count_of_day > g_count_of_stored_day)
+        {   
+            char rm_command[50] = "python3 rmday.py ";
+            strcpy(rm_command, g_bin_dir);
+            strcpy(rm_command, "/");
+
+
+            system( rm_command );
+        }
+
+    }
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
 
@@ -692,7 +746,7 @@ int create_files()
         
         sprintf(file_name, 
                 "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
-                g_bin_dir,
+                dir_name,
                 1900 + ts->tm_year,
                 ts->tm_mon,
                 ts->tm_mday,
@@ -769,13 +823,7 @@ int main(int argc, char** argv)
 
     if( err != READ_CONFIG_OK )
     {
-        err = create_default_config();
-        if ( err != READ_CONFIG_OK )
-        {
-            printf("Не удалось создать конфигурацию по-умолчанию!\n");
-            return err;
-        }
-        
+        return err;
     }
 
     print_config();
