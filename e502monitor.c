@@ -716,7 +716,7 @@ int create_files()
                 ts->tm_mon,
                 ts->tm_mday);
         
-        if(!mkdir(dir_name))
+        if(mkdir(dir_name) != 0)
         {
             printf("Не могу создать директорию для выходных фалов.\n"
                    "Ошибка в пути? Нет прав на запись?\n");
@@ -806,9 +806,9 @@ void* write_data(void *arg)
             }
 
             free(data);   
-        } 
-
-        usleep(sleep_time); // sleep to save process time
+        } else { 
+            usleep(sleep_time); // sleep to save process time
+        }
     }
 }
 
