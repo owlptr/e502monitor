@@ -12,7 +12,8 @@
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
-// #include <dir.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include <libconfig.h>
 
@@ -20,6 +21,7 @@
 
 // #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
 #define FILE_TIME 300 // 5 minuts files
+// #define FILE_TIME 10 // 10 seconds files
 
 #define MAX_CHANNELS 16
 
@@ -703,39 +705,53 @@ int create_files()
     strcpy(g_header.module_name, g_module_name);
     strcpy(g_header.place, g_place); 
     // ---------------------------------------------------------
-    
+
     char dir_name[100] = "";
+
+    sprintf(dir_name,
+            "%s/%d_%02d_%02d",
+            g_bin_dir,
+            1900 + ts->tm_year,
+            ts->tm_mon,
+            ts->tm_mday);
 
     // create directory for new day files
     if(g_current_day != ts->tm_mday)
     {   
-        sprintf(dir_name,
-                "%s/%d_%02d_%02d",
-                g_bin_dir,
-                1900 + ts->tm_year,
-                ts->tm_mon,
-                ts->tm_mday);
-        
-        if(mkdir(dir_name) != 0)
-        {
-            printf("Не могу создать директорию для выходных фалов.\n"
-                   "Ошибка в пути? Нет прав на запись?\n");
-            
-            return CREATE_OUT_FILES_ERROR;
+        g_current_day = ts->tm_mday;
+
+        struct stat st = {0};
+
+        if (stat(dir_name, &st) == -1 ) // if directory not exist
+        {   
+#ifdef DBG
+            printf("Создаю директорию: %s\n", dir_name);
+#endif
+
+            if(mkdir(dir_name, 0700) != 0)
+            {
+                printf("Не могу создать директорию для выходных фалов.\n"
+                       "Ошибка в пути? Нет прав на запись?\n");
+
+                return CREATE_OUT_FILES_ERROR;
+            }
         }
 
         g_count_of_day++;
 
         if( g_count_of_day > g_count_of_stored_day)
         {   
-            char rm_command[50] = "python3 rmday.py ";
-            strcpy(rm_command, g_bin_dir);
-            strcpy(rm_command, "/");
-
-
+            char rm_command[300] = "python3 rmday.py ";
+            strcat(rm_command, g_bin_dir);
+            strcat(rm_command, "/");
+#ifdef DBG
+            printf("Удаляю из директории: %s\n", rm_command);
+#endif
             system( rm_command );
-        }
 
+            // mmm.. WTF?
+            g_count_of_day --;
+        }
     }
 
     if(g_files == NULL){ return CREATE_OUT_FILES_ERROR; }
@@ -755,7 +771,9 @@ int create_files()
                 ts->tm_sec,
                 (int)g_time_start.tv_usec,
                 g_channel_numbers[i]);
-
+#ifdef DBG
+        printf("Создаю файл: %s\n", file_name);
+#endif 
         g_files[i] = fopen(file_name, "wb");
         
         // Skip sizeof(header) byte, becouse we wright header, 
