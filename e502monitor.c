@@ -178,6 +178,42 @@ uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
     return fnd_devcnt;
 }
 
+int get_days_count()
+{
+    char dir_w_slash[100] = "";
+    strcpy(dir_w_slash, g_bin_dir);
+    strcat(dir_w_slash, "/");
+
+    int count = 0;
+    struct dirent *res;
+    struct stat sb;
+
+    if (stat(dir_w_slash, &sb) == 0 && S_ISDIR(sb.st_mode)){
+        DIR *folder = opendir ( dir_w_slash );
+
+        if (access ( dir_w_slash, F_OK ) != -1 ){
+            if ( folder ){
+                while ( ( res = readdir ( folder ) ) ){
+                    if ( strcmp( res->d_name, "." ) && strcmp( res->d_name, ".." ) ){
+                        count++;
+                    }
+                }
+
+                closedir ( folder );
+            }else{
+                perror ( "Не могу открыть директорию.." );
+                exit( EXIT_FAILURE ) ;
+            }
+        }
+
+    }else{
+        printf("Не могу открыть %s (нет доступа? Не является директорией?)\n", g_bin_dir);
+        exit( EXIT_FAILURE );
+    }
+
+    return count;
+}
+
 /*
     Create connecting for selecting device
 
@@ -722,12 +758,13 @@ int create_files()
 
         struct stat st = {0};
 
-        if (stat(dir_name, &st) == -1 ) // if directory not exist
+        if ( stat(dir_name, &st) == -1 ) // if directory not exist
         {   
 #ifdef DBG
             printf("Создаю директорию: %s\n", dir_name);
 #endif
-
+            g_count_of_day++;
+            
             if(mkdir(dir_name, 0700) != 0)
             {
                 printf("Не могу создать директорию для выходных фалов.\n"
@@ -737,13 +774,12 @@ int create_files()
             }
         }
 
-        g_count_of_day++;
-
         if( g_count_of_day > g_count_of_stored_day)
         {   
+            printf("%d/t%d", g_count_of_day, g_count_of_stored_day);
             char rm_command[300] = "python3 rmday.py ";
             strcat(rm_command, g_bin_dir);
-            strcat(rm_command, "/");
+            strcat(rm_command, "/ 1");
 #ifdef DBG
             printf("Удаляю из директории: %s\n", rm_command);
 #endif
@@ -832,7 +868,6 @@ void* write_data(void *arg)
 
 int main(int argc, char** argv)
 {
-    printf("Размер заголовка выходного файла: %d\n", sizeof(header));
     create_stop_event_handler();
 
     g_pd_queue = create_pdouble_queue();
@@ -845,6 +880,60 @@ int main(int argc, char** argv)
     }
 
     print_config();
+
+    // calculate count of days
+    g_count_of_day = get_days_count();
+
+#ifdef DBG
+    printf("Количество сохраненных дней\t:%d\n", g_count_of_day);
+#endif
+
+    if(g_count_of_day >= g_count_of_stored_day)
+    {
+
+        struct tm *ts;
+        gettimeofday(&g_time_start, NULL);
+        ts = gmtime(&g_time_start.tv_sec);
+
+        int count_of_delete_days = g_count_of_day - g_count_of_stored_day;
+
+        char current_day[100] = "";
+        
+        sprintf(current_day,
+                "%s/%d_%02d_%02d",
+                g_bin_dir,
+                1900 + ts->tm_year,
+                ts->tm_mon,
+                ts->tm_mday);
+
+        struct stat st = {0};
+    
+
+        if( stat(current_day, &st) == -1 )
+        {
+            count_of_delete_days++;
+        }
+
+        char rm_command[300] = "python3 rmday.py ";
+        strcat(rm_command, g_bin_dir);
+        strcat(rm_command, "/ ");
+
+        char rm_days[10] = "";
+        sprintf(rm_days,
+                "%d",
+                count_of_delete_days );
+        
+        strcat(rm_command, rm_days);
+
+#ifdef DBG
+        printf("Удаляю дни перед запуском\t:%s\n", rm_command);
+#endif
+
+        system( rm_command );
+    }   
+
+    // recalculate count of days 
+    g_count_of_day = get_days_count();
 
     // ------------------ find lcard e502 devices --------------------
     uint32_t *ip_addr_list = NULL;
