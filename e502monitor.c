@@ -582,7 +582,8 @@ int configure_module()
 
     double frame_freq = g_adc_freq/g_channel_count;
 
-    err = X502_SetAdcFreq(g_hnd, &g_adc_freq, &frame_freq);
+    // err = X502_SetAdcFreq(g_hnd, &g_adc_freq, &frame_freq);
+    err = X502_SetAdcFreq(g_hnd, &g_adc_freq, NULL);
     if(err != X502_ERR_OK){ return CONFIGURE_ERROR; }
 
     //what we realy set...
@@ -1063,6 +1064,8 @@ int main(int argc, char** argv)
         X502_GetNextExpectedLchNum(g_hnd, &first_lch);
 
         adc_size = sizeof(double)*g_read_block_size;
+
+        
 
         err = X502_ProcessData(g_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                data, &adc_size, NULL, NULL);
