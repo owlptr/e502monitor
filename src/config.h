@@ -35,15 +35,6 @@ typedef struct{
 int create_default_config();
 
 /*
-    Create config.
-
-    config - structure for stored configuration.
-
-    Return error index.
-*/
-int create_config(e502monitor_config *config);
-
-/*
     Print information about configuration.
 
     config - configuration for printing.
@@ -65,6 +56,6 @@ e502monitor_config* create_config();
 
     config - pointer to pointer to allocated memory
 */
-void clear_config(e502monitor_config *config);
+void destroy_config(e502monitor_config *config);
 
 #endif // CONFIG_H

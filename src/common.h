@@ -8,8 +8,8 @@
 #define COMMON_H
 
 #define E502M_ERR_OK 0
-#define E502M_ERR -1
-#define E502M_EXIT_FAILURE -2
+#define E502M_ERR 1
+#define E502M_EXIT_FAILURE 2
 
 // #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
 #define FILE_TIME 300 // 5 minuts files

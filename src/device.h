@@ -33,7 +33,7 @@ uint32_t get_usb_devrec(t_x502_devrec **devrec_list);
     Create connection for selected device.
 
     devrec_list - list of available devices.
-    device_id   - id of selected devices
+    device_id   - id of selected devices.
 
     Return special t_x502_hnd heandle.
 
@@ -48,7 +48,7 @@ t_x502_hnd open_device(t_x502_devrec *devrec_list, uint32_t device_id);
 
     Return error index
 */  
-int print_info_about_module(t_x502_hnd *device_hnd);
+int print_info_about_device(t_x502_hnd *device_hnd);
 
 /*
     Set configuration.
@@ -57,6 +57,16 @@ int print_info_about_module(t_x502_hnd *device_hnd);
     config     - configuration for setting
 
 */
-int configure_module(t_x502_hnd *device_hnd, e502monitor_config *config);
+int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config);
+
+/*
+    Print all available modules.
+
+    devrec_list - list of available devices
+    
+
+*/
+
+void print_available_devices(t_x502_devrec *devrec_list, uint32_t device_count);
 
 #endif  // DEVICE_H

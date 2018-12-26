@@ -31,7 +31,7 @@ uint32_t get_usb_devrec(t_x502_devrec **devrec_list)
     }
 
     // if there were some mistake and 
-    // no one module was getting
+    // no one device was getting
     if(fnd_devcnt == 0)
     {
         free(rec_list);
@@ -55,7 +55,7 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
         return hnd;
     }
     
-    /* create connection with module */
+    /* create connection with device */
     int32_t err = X502_OpenByDevRecord(hnd, &devrec_list[device_id]);
     if (err != X502_ERR_OK) 
     {
@@ -70,7 +70,7 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
     return hnd;
 }
 
-int print_info_about_module(t_x502_hnd *device_hnd)
+int print_info_about_device(t_x502_hnd *device_hnd)
 {
     t_x502_info info;
     uint32_t err = X502_GetDevInfo(device_hnd, &info);
@@ -121,7 +121,7 @@ int print_info_about_module(t_x502_hnd *device_hnd)
     return err;
 }
 
-int configure_module(t_x502_hnd *device_hnd, e502monitor_config *config)
+int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config)
 {
     int32_t err = X502_SetLChannelCount(device_hnd, config->channel_count);
 
@@ -158,4 +158,20 @@ int configure_module(t_x502_hnd *device_hnd, e502monitor_config *config)
     if(err != X502_ERR_OK){ return E502M_ERR; }
 
     return E502M_ERR_OK;
+}
+
+void print_available_devices(t_x502_devrec *devrec_list, uint32_t device_count)
+{
+    printf("Доступны следующие модули:\n");
+    for (int i=0; i < device_count; i++) {
+        printf("Модуль № %d: %s, %-9s", i, devrec_list[i].devname,
+               devrec_list[i].iface == X502_IFACE_PCI ? "PCI/PCIe" :
+               devrec_list[i].iface == X502_IFACE_USB ? "USB" :
+               devrec_list[i].iface == X502_IFACE_ETH ? "Ethernet" : "?");
+        if (devrec_list[i].iface != X502_IFACE_ETH) {
+            printf("Серийные номер: %s\n", devrec_list[i].serial);
+        } else {
+            printf("Адрес: %s\n", devrec_list[i].location);
+        }
+    }
 }

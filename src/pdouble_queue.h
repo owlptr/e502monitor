@@ -1,4 +1,8 @@
 /*
+    "pdouble_queue.h" contains declaration of
+    functions to use and create safe-thread queue
+    contained double data array.
+
     Author: Gapeev Maksim
 */
 

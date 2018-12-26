@@ -371,7 +371,7 @@ e502monitor_config* create_config()
     return config;
 }
 
-void clear_config(e502monitor_config *config)
+void destroy_config(e502monitor_config *config)
 {
     if( config->channel_numbers != NULL ){free( config->channel_numbers);}
     if( config->channel_modes   != NULL ){free( config->channel_modes);}
