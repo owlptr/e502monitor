@@ -164,7 +164,7 @@ uint32_t get_all_devrec(t_x502_devrec **pdevrec_list,
         }
     }
 
-    // if were some mistake and no one modele
+    // if were some mistake and no one module
     // was getting
     if(fnd_devcnt == 0)
     {
