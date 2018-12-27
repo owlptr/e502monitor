@@ -88,7 +88,7 @@ int create_default_config()
     return E502M_ERR_OK;
 }
 
-int create_config(e502monitor_config **config)
+int init_config(e502monitor_config **config)
 {
     e502monitor_config* e502m_cfg = *config;
 
@@ -312,8 +312,9 @@ int create_config(e502monitor_config **config)
         strcpy(e502m_cfg->channel_names[i], config_setting_get_string_elem(channel_names, i));
     }
 
-
     config_destroy(&cfg);    
+
+    return E502M_ERR_OK;
 }
 
 void print_config(e502monitor_config *config)
@@ -354,12 +355,12 @@ void print_config(e502monitor_config *config)
     {
         printf("%s ", config->channel_names[i]);
     }
-    printf("]\n");
+    printf("]\n\n");
 }
 
 e502monitor_config* create_config()
 {   
-    e502monitor_config* config = (e502monitor_config*)(sizeof(e502monitor_config));
+    e502monitor_config* config = (e502monitor_config*)malloc(sizeof(e502monitor_config));
 
     if(config == NULL){ return NULL; } 
 

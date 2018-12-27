@@ -58,4 +58,14 @@ e502monitor_config* create_config();
 */
 void destroy_config(e502monitor_config *config);
 
+/*
+    Initialize configuration
+
+    config - pointer to pointer 
+             to special settings 
+             structure.
+*/
+
+int init_config(e502monitor_config **config);
+
 #endif // CONFIG_H
