@@ -74,12 +74,17 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg)
 {
+
+#ifdef DBG
+    printf("Заканчиваю запись файлов...\n");
+#endif
+
     for(int i = 0; i < files_count; ++i)
     { 
-        hdr->mode = cfg->channel_modes[i];
-        hdr->channel_range = cfg->channel_ranges[i];
-        hdr->channel_number = cfg->channel_numbers[i];
-        strcpy(hdr->channel_name, cfg->channel_names[i]);
+        // hdr->mode = cfg->channel_modes[i];
+        // hdr->channel_range = cfg->channel_ranges[i];
+        // hdr->channel_number = cfg->channel_numbers[i];
+        // strcpy(hdr->channel_name, cfg->channel_names[i]);
       
         // set pointer in stream to begin
         // it's necessary, because information, which
@@ -91,4 +96,45 @@ void close_files(FILE **files,
 
         fclose(files[i]);
     }
+
+#ifdef DBG
+    printf("Файлы записаны.\n");
+#endif
+
 }
+
+// void remove_days(char *path,
+//                  char* current_day,
+//                  int stored_days_count)
+// {
+//     struct dirent **namelist;
+
+//     int n = scandir(path, &namelist, NULL, alphasort);
+    
+//     // free memory and return if doesn't need 
+//     // remove days 
+//     // n - 2, because skip <.> and <..>
+//     if( n - 2 <  stored_days_count )
+//     {   
+//         while (n--) { free(namelist[n]); }
+//         free(namelist);
+
+//         return;
+//     }
+    
+//     for( int i = n - 3; i != 0; i-- )
+//     {
+
+//     }
+
+
+//     if (n < 0)
+//         perror("scandir");
+//     else {
+//         while (n--) {
+//             printf("%s\n", namelist[n]->d_name);
+//             free(namelist[n]);
+//         }
+//         free(namelist);
+//     }
+// }

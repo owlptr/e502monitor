@@ -7,19 +7,13 @@
 #include "common.h"
 #include "files.h"
 #include "header.h"
+#include "device.h"
 
 #include <stdio.h>
 #include <stdint.h>
-// #include <stdlib.h>
-// #include <unistd.h>
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
-// #include <dirent.h>
-// #include <sys/stat.h>
-
-// #include <libconfig.h>
-#include "device.h"
 
 static int            g_stop = 0; // if equal 1 - stop working
 static struct timeval g_time_start; // time of start writing file
@@ -325,9 +319,9 @@ void *write_data(void *arg)
 
         if(data != NULL)
         {   
-#ifdef DBG
-        printf("Пишу блок данных\n");
-#endif 
+// #ifdef DBG
+//         printf("Пишу блок данных\n");
+// #endif 
             current_file_size += size/g_config->channel_count;            
             for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
             {                               

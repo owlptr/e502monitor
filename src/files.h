@@ -45,6 +45,10 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg);
 
+// void remove_days(char* path,
+//                  char* current_day,
+//                  int stored_days_count);
+
 // /*
 //     Create directory.
 

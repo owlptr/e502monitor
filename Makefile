@@ -18,7 +18,7 @@ SOURCE := src/config.c \
 # 		   src/pdouble_queue.h
 
 e502monitor: $(SOURCE)
-	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET)
+	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) -DDBG
 
 clean:
 	rm e502monitor
