@@ -336,12 +336,12 @@ void *write_data(void *arg)
             if(current_file_size >= total_file_size)
             {
                 current_file_size = 0;
-                
+
                 close_files(g_files,
                             g_config->channel_count,
                             &g_header,
-                            &g_config);
-                
+                            g_config);
+
                 create_files(g_files,
                              g_config->channel_count,
                              &g_time_start,

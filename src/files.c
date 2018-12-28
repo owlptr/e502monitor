@@ -81,10 +81,10 @@ void close_files(FILE **files,
 
     for(int i = 0; i < files_count; ++i)
     { 
-        // hdr->mode = cfg->channel_modes[i];
-        // hdr->channel_range = cfg->channel_ranges[i];
-        // hdr->channel_number = cfg->channel_numbers[i];
-        // strcpy(hdr->channel_name, cfg->channel_names[i]);
+        hdr->mode = cfg->channel_modes[i];
+        hdr->channel_range = cfg->channel_ranges[i];
+        hdr->channel_number = cfg->channel_numbers[i];
+        strcpy(hdr->channel_name, cfg->channel_names[i]);
       
         // set pointer in stream to begin
         // it's necessary, because information, which

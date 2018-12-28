@@ -10,14 +10,14 @@ SOURCE := src/config.c \
 		  src/main.c \
 		  src/pdouble_queue.c
 
-# HEADERS := src/common.h \
-# 		   src/config.h \
-# 		   src/device.h \
-# 		   src/files.h \
-# 		   src/header.h \
-# 		   src/pdouble_queue.h
+HEADERS := src/common.h \
+		   src/config.h \
+		   src/device.h \
+		   src/files.h \
+		   src/header.h \
+		   src/pdouble_queue.h
 
-e502monitor: $(SOURCE)
+e502monitor: $(SOURCE) $(HEADERS)
 	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) -DDBG
 
 clean:
