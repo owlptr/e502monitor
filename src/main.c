@@ -41,6 +41,13 @@ void abort_handler(int sig);
 */
 void* write_data(void *arg);
 
+/*
+    
+*/
+void get_current_day_as_string(char **current_day);
+
+void clear_dir();
+
 int main(int argc, char** argv)
 {
 
@@ -166,19 +173,22 @@ int main(int argc, char** argv)
     int current_file_size = 0;
     double* data;
 
-    gettimeofday(&g_time_start, NULL);
-
 #ifdef DBG
     printf("Создаю файлы\n");
 #endif
 
-     g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
+    gettimeofday(&g_time_start, NULL);
+    
+    clear_dir();
+
+    g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
 
     uint32_t err = create_files(g_files,
                                 g_config->channel_count,
                                 &g_time_start,
                                 g_config->bin_dir,
                                 g_config->channel_numbers);
+
 
     if( err != E502M_ERR_OK)
     {
@@ -220,6 +230,7 @@ int main(int argc, char** argv)
     printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
     fflush(stdout);
 
+    gettimeofday(&g_time_start, NULL);
     // main loop for receiving data
     while(!g_stop)
     {
@@ -277,11 +288,11 @@ int main(int argc, char** argv)
 
 
 
-    X502_Close(device_hnd);
-    X502_Free(device_hnd);
-    destroy_pdouble_queue(g_data_queue);
-    destroy_config(g_config);
-    free(g_files);
+    // X502_Close(device_hnd);
+    // X502_Free(device_hnd);
+    // destroy_pdouble_queue(g_data_queue);
+    // destroy_config(g_config);
+    // free(g_files);
 
     return 0;
 }
@@ -342,6 +353,8 @@ void *write_data(void *arg)
                             &g_header,
                             g_config);
 
+                clear_dir();
+
                 create_files(g_files,
                              g_config->channel_count,
                              &g_time_start,
@@ -354,4 +367,47 @@ void *write_data(void *arg)
             usleep(sleep_time); // sleep to save process time
         }
     }    
+}
+
+void get_current_day_as_string(char **current_day)
+{
+    struct tm *ts; // time of start recording
+
+    ts = gmtime(&g_time_start.tv_sec);
+
+    // printf("%s\n", *current_day);
+
+    sprintf(*current_day,
+            "%d_%02d_%02d",
+            1900 + ts->tm_year,
+            ts->tm_mon + 1,
+            ts->tm_mday);
+}
+
+void clear_dir()
+{
+    char *current_day = (char*)malloc(sizeof(char) * 100);
+#ifdef DBG
+    printf("Вычисляю день в виде строки...\n");
+#endif   
+
+    get_current_day_as_string(&current_day);
+
+#ifdef DBG
+    printf("Проверяю необходимость очистки директории...\n");
+#endif
+
+    int remove_days_count = is_need_clear_dir(g_config->bin_dir,
+                                              current_day,
+                                              g_config->stored_days_count);
+
+    if( remove_days_count > 0 )
+    {
+#ifdef DBG
+    printf("Необходимо удалить %d дней\n", remove_days_count);
+#endif
+        remove_days(g_config->bin_dir, current_day, remove_days_count);
+    }
+
+    free (current_day);
 }

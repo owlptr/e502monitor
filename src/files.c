@@ -1,6 +1,8 @@
 #include "files.h"
 #include "common.h"
 #include <sys/stat.h>
+#include <dirent.h>
+#include <string.h>
 
 int create_files(FILE **files,
                  int files_count,
@@ -12,13 +14,13 @@ int create_files(FILE **files,
 
     ts = gmtime(&start_time->tv_sec);
 
-    char dir_name[100] = "";
+    char dir_name[100]    = "";
 
     sprintf(dir_name,
             "%s/%d_%02d_%02d",
             path,
             1900 + ts->tm_year,
-            ts->tm_mon,
+            ts->tm_mon + 1,
             ts->tm_mday);
 
     struct stat st = {0};
@@ -103,38 +105,145 @@ void close_files(FILE **files,
 
 }
 
-// void remove_days(char *path,
-//                  char* current_day,
-//                  int stored_days_count)
-// {
-//     struct dirent **namelist;
+int remove_day(char *path)
+{
+#ifdef DBG
+    printf("Удаление дня: %s\n", path);
+#endif
+    struct dirent **namelist;
 
-//     int n = scandir(path, &namelist, NULL, alphasort);
+    int n = scandir(path, &namelist, NULL, alphasort);
+
+#ifdef DBG
+    printf("Удаляем файлов: %d\n", (n - 2));
+#endif
+
+    if( n < 0 )
+    {
+#ifdef DBG
+    printf("Упс..: %d\n", n);
+#endif
+        return E502M_ERR;
+    }
+
+    while( n -- )
+    {
+        if( strcmp(namelist[n]->d_name, ".")  == 0 ||
+            strcmp(namelist[n]->d_name, "..") == 0)
+        {
+
+#ifdef DBG
+            printf("Пропускаю %s\n", namelist[n]->d_name);
+#endif
+        } else {
+            char remove_file[200] = "";
+            
+            strcpy(remove_file, path);
+            strcat(remove_file, "/");
+            strcat(remove_file, namelist[n]->d_name);
+
+            remove(remove_file);
+#ifdef DBG
+            printf("Удаляю файл: %s\n", remove_file);
+#endif
+        }
+
+        free(namelist[n]);
+    }
+
+    int result = rmdir(path);
+
+    printf("Результат удаление: %d\n", result);
+
+    free(namelist);
+
+    return E502M_ERR_OK;
+}
+
+int is_need_clear_dir(char *path,
+                      char *current_day,
+                      int stored_days_count)
+{
+    struct dirent **namelist;
+
+    int n = scandir(path, &namelist, NULL, alphasort);
+
+    if( n < 0 )
+    {
+        return E502M_ERR;
+    }
+
+    int stored_days = n;
+
+    while( n -- )
+    {
+        if( strcmp(namelist[n]->d_name, ".")  == 0 ||
+            strcmp(namelist[n]->d_name, "..") == 0 ||
+            strcmp(namelist[n]->d_name, current_day) == 0)
+        {
+            stored_days --;
+        }
+
+        free(namelist[n]);
+    }
+
+    free(namelist);
+
+    return ( stored_days - stored_days_count );
+}
+
+int remove_days( char *path, char *current_day, int count )
+{
+    struct dirent **namelist;
+
+    int n = scandir(path, &namelist, NULL, alphasort);
+
+    if( n < 0 )
+    {
+        return E502M_ERR;
+    }
+
+    int removed_days_count = 0;
     
-//     // free memory and return if doesn't need 
-//     // remove days 
-//     // n - 2, because skip <.> and <..>
-//     if( n - 2 <  stored_days_count )
-//     {   
-//         while (n--) { free(namelist[n]); }
-//         free(namelist);
+    int i = 0;
 
-//         return;
-//     }
+    for(i = 0; i < n; i++)
+    {
+        if( strcmp(namelist[i]->d_name, ".")  == 0 ||
+            strcmp(namelist[i]->d_name, "..") == 0 ||
+            strcmp(namelist[i]->d_name, current_day) == 0)
+        {
+          
+          
+        }else { 
+
+            char remove_dir[200] = "";
+            strcpy(remove_dir, path);
+            strcat(remove_dir, "/");
+            strcat(remove_dir, namelist[i]->d_name);
+
+            remove_day(remove_dir);
+
+            removed_days_count++;
+        }
+
+        free(namelist[i]);
+
+        if( removed_days_count == count ) { break; }
+    }
+
+    i++;
     
-//     for( int i = n - 3; i != 0; i-- )
-//     {
+    while( i < n ) {
+        free(namelist[i]);
+        i++;     
+    }
 
-//     }
+    free(namelist);
 
+#ifdef DBG
+    printf("Дни удалены\n");
+#endif
 
-//     if (n < 0)
-//         perror("scandir");
-//     else {
-//         while (n--) {
-//             printf("%s\n", namelist[n]->d_name);
-//             free(namelist[n]);
-//         }
-//         free(namelist);
-//     }
-// }
+    return E502M_ERR_OK;
+}

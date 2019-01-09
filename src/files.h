@@ -45,28 +45,40 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg);
 
-// void remove_days(char* path,
-//                  char* current_day,
-//                  int stored_days_count);
 
-// /*
-//     Create directory.
+/*
+    Remove one stored day.
 
-//     path - directory path.
+    path - path to data.
 
+    Return error index.
+*/
+int remove_day(char *path);
 
-//     Return error index.
-// */
-// int create_dir(char *path);
+/*
+    Checks the need to clean the directory.
 
-// /*
-//     Remove directories.
+    path              - path to data dir.
+    current_day       - current day as special string.
+    stored_days_count - count of stored days. 
 
-//     path - directories path.
+    Return count of day, that must be removed.
+    Return 0 if clearing isn't necessary. 
+    If something was wrong return error index ( result < 0 ).
+*/
+int is_need_clear_dir(char *path,
+                      char *current_day,
+                      int stored_days_count);
 
+/*
+    Remove days.
 
-//     Return error index.
-// */
-// int remove_dir(char* path, int count);
+    path  - path to data dir.
+    current_day       - current day as special string.
+    count - count of remove days. 
+
+    Return error index.
+*/
+int remove_days( char *path, char *current_day, int count );
 
 #endif // FILES_H
