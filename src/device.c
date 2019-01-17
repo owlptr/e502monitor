@@ -141,15 +141,16 @@ int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config)
 
     double frame_freq = config->adc_freq/config->channel_count;
 
-    err = X502_SetAdcFreq(device_hnd, &config->adc_freq, &frame_freq);
-    // err = X502_SetAdcFreq(device_hnd, &config->adc_freq, NULL);
+    // err = X502_SetAdcFreq(device_hnd, &config->adc_freq, &frame_freq);
+    err = X502_SetAdcFreq(device_hnd, &config->adc_freq, NULL);
     if(err != X502_ERR_OK){ return E502M_ERR; }
 
     //what we realy set...
     printf("\nУстановлены частоты:\n"
            " Частота сбора АЦП\t\t:%0.0f\n"
            " Частота на лог. канал\t\t:%0.0f\n",
-           config->adc_freq, frame_freq);
+        //    config->adc_freq, frame_freq);
+            config->adc_freq, (config->adc_freq / config->channel_count));
 
     err = X502_Configure(device_hnd, 0);
     if(err != X502_ERR_OK){ return E502M_ERR; }

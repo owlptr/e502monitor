@@ -63,8 +63,6 @@ int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config);
     Print all available modules.
 
     devrec_list - list of available devices
-    
-
 */
 
 void print_available_devices(t_x502_devrec *devrec_list, uint32_t device_count);

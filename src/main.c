@@ -96,11 +96,6 @@ int main(int argc, char** argv)
 
     print_config(g_config);
 
-    // initialize some header fields
-    g_header.adc_freq    = g_config->adc_freq;
-    strcpy(g_header.module_name, g_config->module_name);
-    strcpy(g_header.place, g_config->place);
-
     uint32_t fnd_devcnt = 0;
     t_x502_devrec *devrec_list = NULL;
 
@@ -165,6 +160,11 @@ int main(int argc, char** argv)
 
     configure_device(device_hnd, g_config);
 
+    // initialize some header fields
+    g_header.adc_freq = g_config->adc_freq / g_config->channel_count;
+    strcpy(g_header.module_name, g_config->module_name);
+    strcpy(g_header.place, g_config->place);
+
     uint32_t adc_size = sizeof(double)*g_config->read_block_size;
     int32_t  rcv_size;
     uint32_t first_lch;
@@ -183,27 +183,6 @@ int main(int argc, char** argv)
 
     g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
 
-    uint32_t err = create_files(g_files,
-                                g_config->channel_count,
-                                &g_time_start,
-                                g_config->bin_dir,
-                                g_config->channel_numbers);
-
-
-    if( err != E502M_ERR_OK)
-    {
-        printf("Ошибка создания описателей выходных файлов!\n");
-
-        X502_Close(device_hnd);
-        X502_Free(device_hnd);
-
-        destroy_pdouble_queue(data);
-        destroy_config(g_config);
-        free(g_files);
-
-        return E502M_EXIT_FAILURE;
-    }
-
 #ifdef DBG
     printf("Создаю отдельный поток для записи данных\n");
 #endif
@@ -212,7 +191,7 @@ int main(int argc, char** argv)
     pthread_create(&thread, NULL, write_data, NULL);
     pthread_detach(thread);
 
-    err = X502_StreamsStart(device_hnd);
+    uint32_t  err = X502_StreamsStart(device_hnd);
     if(err != X502_ERR_OK)
     {
         fprintf(stderr,
@@ -231,6 +210,32 @@ int main(int argc, char** argv)
     fflush(stdout);
 
     gettimeofday(&g_time_start, NULL);
+
+    // int current_file_block_add = g_config->read_block_size / g_config->channel_count;
+
+    // current_file_size = total_file_size;
+
+    err = create_files(g_files,
+                                g_config->channel_count,
+                                &g_time_start,
+                                g_config->bin_dir,
+                                g_config->channel_numbers);
+
+
+    if( err != E502M_ERR_OK )
+    {
+        printf("Ошибка создания описателей выходных файлов!\n");
+
+        X502_Close(device_hnd);
+        X502_Free(device_hnd);
+
+        destroy_pdouble_queue(data);
+        destroy_config(g_config);
+        free(g_files);
+
+        return E502M_EXIT_FAILURE;
+    }
+
     // main loop for receiving data
     while(!g_stop)
     {
@@ -240,6 +245,7 @@ int main(int argc, char** argv)
         // if need create new files store moment of
         // reading new block data
         current_file_size += g_config->read_block_size / g_config->channel_count;
+        // current_file_size += current_file_block_add;
 
         if( current_file_size >= total_file_size )
         {
@@ -265,7 +271,6 @@ int main(int argc, char** argv)
             g_header.finish_minut       = ts->tm_min;
             g_header.finish_second      = ts->tm_sec;
             g_header.finish_usecond     = (int)g_time_start.tv_usec;
-
             // ------------------------------------------------------
 
             gettimeofday(&g_time_start, NULL);
@@ -323,7 +328,7 @@ void *write_data(void *arg)
     double *data = NULL;
 
     int sleep_time = g_config->read_timeout / 2; 
-
+    // int current_file_block_add = g_config->read_block_size / g_config->channel_count;
     while(!g_stop)
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr);
@@ -333,7 +338,8 @@ void *write_data(void *arg)
 // #ifdef DBG
 //         printf("Пишу блок данных\n");
 // #endif 
-            current_file_size += size/g_config->channel_count;            
+            current_file_size += size/g_config->channel_count;  
+            // current_file_size += current_file_block_add;          
             for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
             {                               
                 if(ch_cntr == g_config->channel_count){ ch_cntr = 0; } 
