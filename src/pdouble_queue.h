@@ -11,6 +11,9 @@
 
 #include <pthread.h>
 
+#define LAST_BUFFER 1
+#define NOT_LAST_BUFFER 2
+
 typedef struct {
     double* data;
     int size;
@@ -19,7 +22,9 @@ typedef struct {
                         // to which correspond first
                         // countodwn in the array <<data>>
                         // in the next pdq_node
-
+    
+    int last_buffer_index; 
+    
     struct pdq_node* next;
 
 }pdq_node;
@@ -38,12 +43,14 @@ pdouble_queue* create_pdouble_queue();
 void push_to_pdqueue(pdouble_queue *pd_queue,
                      double** data,
                      int size,
-                     int first_lch);
+                     int first_lch,
+                     int last_buffer_index);
 
 void pop_from_pdqueue(pdouble_queue *pd_queue,
                       double** data,
                       int *size,
-                      int *first_lch);
+                      int *first_lch,
+                      int *last_buffer_index);
 
 void destroy_pdouble_queue(pdouble_queue **pd_queue);
 

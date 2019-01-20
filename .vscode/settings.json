@@ -3,5 +3,6 @@
     "files.associations": {
         "libconfig.h": "c"
     },
-    "python.linting.pylintEnabled": false
+    "python.linting.pylintEnabled": false,
+    "C_Cpp.dimInactiveRegions": false
 }

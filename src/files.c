@@ -14,7 +14,7 @@ int create_files(FILE **files,
 
     ts = gmtime(&start_time->tv_sec);
 
-    char dir_name[100]    = "";
+    char dir_name[100] = "";
 
     sprintf(dir_name,
             "%s/%d_%02d_%02d",
@@ -165,7 +165,9 @@ int is_need_clear_dir(char *path,
                       int stored_days_count)
 {
     struct dirent **namelist;
-
+#ifdef DBG
+    printf("Сканирую директорию\n");
+#endif
     int n = scandir(path, &namelist, NULL, alphasort);
 
     if( n < 0 )

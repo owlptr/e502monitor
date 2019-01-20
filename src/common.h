@@ -13,6 +13,7 @@
 
 // #define FILE_TIME 900 // create 15 minutes files... 15 min = 900 sec
 #define FILE_TIME 60 // 1 minut files
+// #define FILE_TIME 10
 
 #define MAX_CHANNELS 16
 

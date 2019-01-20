@@ -73,9 +73,9 @@ int is_need_clear_dir(char *path,
 /*
     Remove days.
 
-    path  - path to data dir.
-    current_day       - current day as special string.
-    count - count of remove days. 
+    path        - path to data directory.
+    current_day - current day as special string.
+    count       - count of remove days. 
 
     Return error index.
 */
