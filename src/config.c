@@ -372,12 +372,12 @@ e502monitor_config* create_config()
     return config;
 }
 
-void destroy_config(e502monitor_config *config)
+void destroy_config(e502monitor_config **config)
 {
-    if( config->channel_numbers != NULL ){free( config->channel_numbers);}
-    if( config->channel_modes   != NULL ){free( config->channel_modes);}
-    if( config->channel_ranges  != NULL ){free( config->channel_ranges);}
-    if( config->channel_names   != NULL ){free( config->channel_names);}
+    if( (*config)->channel_numbers != NULL ){free( (*config)->channel_numbers);}
+    if( (*config)->channel_modes   != NULL ){free( (*config)->channel_modes);}
+    if( (*config)->channel_ranges  != NULL ){free( (*config)->channel_ranges);}
+    if( (*config)->channel_names   != NULL ){free( (*config)->channel_names);}
 
-    free(config);
+    free( (*config) ) ;
 }

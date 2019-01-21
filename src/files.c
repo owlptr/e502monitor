@@ -8,7 +8,8 @@ int create_files(FILE **files,
                  int files_count,
                  struct timeval* start_time,
                  char* path,
-                 int* channel_numbers)
+                 int* channel_numbers,
+                 char** stored_file_names)
 {
     struct tm *ts; // time of start recording
 
@@ -58,6 +59,8 @@ int create_files(FILE **files,
                 ts->tm_sec,
                 (int)start_time->tv_usec,
                 channel_numbers[i]);
+        
+        strcpy(stored_file_names[i], file_name);
 #ifdef DBG
         printf("Создаю файл :%s\n", file_name);
 #endif
@@ -72,6 +75,8 @@ int create_files(FILE **files,
 }
 
 void close_files(FILE **files,
+                 char* dir_name,
+                 char** file_names,
                  int files_count,
                  header *hdr,
                  e502monitor_config *cfg)
@@ -80,6 +85,16 @@ void close_files(FILE **files,
 #ifdef DBG
     printf("Заканчиваю запись файлов...\n");
 #endif
+
+    char new_file_name[500] = "";
+    char path_to_file[500] = "";
+
+    sprintf(path_to_file,
+            "%s/%d_%02d_%02d",
+            dir_name,
+            hdr->year,
+            hdr->month,
+            hdr->day);
 
     for(int i = 0; i < files_count; ++i)
     { 
@@ -90,13 +105,33 @@ void close_files(FILE **files,
       
         // set pointer in stream to begin
         // it's necessary, because information, which
-        // represented by sctructure header
+        // represented by sctucture header
         // must be placed in the begin of data-file 
         fseek(files[i], 0, SEEK_SET);
         
         fwrite(hdr, sizeof(header), 1, files[i]);
 
         fclose(files[i]);
+
+        // rename files (for correcting start time)
+
+        sprintf(new_file_name, 
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
+                path_to_file,
+                hdr->year,
+                hdr->month,
+                hdr->day,
+                hdr->start_hour,
+                hdr->start_minut,
+                hdr->start_second,
+                (int)hdr->start_usecond,
+                i);
+        
+#ifdef DBG
+        printf("Переименовываю файл <%s> на <%s>\n", file_names[i], new_file_name);
+#endif
+
+        rename(file_names[i], new_file_name);
     }
 
 #ifdef DBG

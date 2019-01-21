@@ -83,6 +83,20 @@ void pop_from_pdqueue(pdouble_queue *pd_queue,
 
 void destroy_pdouble_queue(pdouble_queue **pd_queue)
 {
+
+    while((*pd_queue)->head != NULL)
+    {
+        pdq_node* pop_node = (*pd_queue)->head;
+
+        (*pd_queue)->head = (*pd_queue)->head->next; 
+
+        free( pop_node->data );
+
+        (*pd_queue)->size--;
+
+        free(pop_node);
+    }
+
     pthread_mutex_destroy(&((*pd_queue)->mutex));
-    free(*pd_queue);
+    free( (*pd_queue) );
 }

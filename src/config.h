@@ -56,7 +56,7 @@ e502monitor_config* create_config();
 
     config - pointer to pointer to allocated memory
 */
-void destroy_config(e502monitor_config *config);
+void destroy_config(e502monitor_config **config);
 
 /*
     Initialize configuration

@@ -18,11 +18,12 @@
 /*
     Create files for writing data on disk.
 
-    files           - array of file descriptors.
-    files_count     - count of file descriptors.
-    start_time      - time of start writing data.
-    path            - directory for writing data.
-    channel_numbers - numbers of using channels 
+    files             - array of file descriptors.
+    files_count       - count of file descriptors.
+    start_time        - time of start writing data.
+    path              - directory for writing data.
+    channel_numbers   - numbers of using channels 
+    stored_file_names - array for stored file names 
 
     Retutn error index. 
 */
@@ -30,17 +31,22 @@ int create_files(FILE **files,
                  int files_count,
                  struct timeval* start_time,
                  char* path,
-                 int* channel_numbers);
+                 int* channel_numbers,
+                 char** stored_file_names);
 
 /*
     Finish writing of files with data
 
     files       - array of file descriptors.
+    dir_name    - output data directory name.
+    file_names  - names of close files.
     files_count - count of file descriptors.
     hdr         - special header with information.
     cfg         - configuration info
 */
 void close_files(FILE **files,
+                 char* dir_name,
+                 char** file_names,
                  int files_count,
                  header *hdr,
                  e502monitor_config *cfg);

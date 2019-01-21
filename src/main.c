@@ -18,11 +18,14 @@
 static int            g_stop = 0; // if equal 1 - stop working
 static struct timeval g_time_start; // time of start writing file
 static struct timeval g_time_end;   // time of finish writing file
+static struct timeval g_prev_time_start; // time start of previuos file
 
-static FILE**   g_files;  // files for stored data
+static FILE**   g_files = NULL; // files for stored data
 static header   g_header; // header with information 
-static e502monitor_config*  g_config; // structure for configure
-static pdouble_queue* g_data_queue; // queue for stored data
+static e502monitor_config*  g_config = NULL; // structure for configure
+static pdouble_queue* g_data_queue = NULL; // queue for stored data
+
+static char **g_old_file_names = NULL; // array of old file names
 
 /*
     Create stop event heandler for
@@ -42,10 +45,20 @@ void abort_handler(int sig);
 void* write_data(void *arg);
 
 /*
-    
+    Return current day as string.
+
+    current_day - pointer to pointer to return char array
 */
 void get_current_day_as_string(char **current_day);
 
+/*
+    Free memory from global variables
+*/
+void free_global_memory();
+
+/*
+    Clear data directory. Delete old days.
+*/
 void clear_dir();
 
 int main(int argc, char** argv)
@@ -72,9 +85,8 @@ int main(int argc, char** argv)
     if( g_config == NULL )
     {
         printf("Ошибка создания конфигурации. Завершение.\n");
-        
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
+
+        free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
@@ -88,8 +100,7 @@ int main(int argc, char** argv)
     {
         printf("Ошибка конфигурационного файла. Заверешние.\n");
 
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
+        free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
@@ -105,9 +116,8 @@ int main(int argc, char** argv)
     {
         printf("Не найдено ни одного модуля. Завершение.\n");
 
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
-        
+        free_global_memory();
+
         return E502M_EXIT_FAILURE;
     }
 
@@ -131,8 +141,7 @@ int main(int argc, char** argv)
         X502_FreeDevRecordList(devrec_list, fnd_devcnt);
         free(devrec_list);
 
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
+        free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
@@ -147,8 +156,7 @@ int main(int argc, char** argv)
         X502_FreeDevRecordList(devrec_list, fnd_devcnt);
         free(devrec_list);
 
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
+        free_global_memory();
         
         return E502M_EXIT_FAILURE;
     }
@@ -173,6 +181,14 @@ int main(int argc, char** argv)
     int current_file_sizes = 0;
     double* data;
 
+    // allocate memory for old files array
+    g_old_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
+    
+    for(int i = 0; i < g_config->channel_count; i++)
+    {
+        g_old_file_names[i] = (char*)malloc(sizeof(char) * 101);
+    }
+
 #ifdef DBG
     printf("Создаю файлы\n");
 #endif
@@ -195,9 +211,7 @@ int main(int argc, char** argv)
                 X502_GetErrorString(err)
                 );
 
-        destroy_pdouble_queue(g_data_queue);
-        destroy_config(g_config);
-        free(g_files);
+        free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
@@ -205,26 +219,26 @@ int main(int argc, char** argv)
     printf("Сбор данных запущен. Для остановки нажмите Ctrl+C\n");
     fflush(stdout);
 
-    gettimeofday(&g_time_start, NULL);
-
     int current_file_block_add = g_config->read_block_size; // / g_config->channel_count;
 
     // current_file_size = total_file_size;
 
     int read_block_size = g_config->read_block_size;
-    int read_timeout = g_config->read_timeout;
-    int last_buffer_index = NOT_LAST_BUFFER; 
+    int read_timeout = g_config->read_timeout; 
     int real_file_sizes = 0;
 
     pthread_t thread;
     pthread_create(&thread, NULL, write_data, NULL);
     pthread_detach(thread);
 
+    gettimeofday(&g_time_start, NULL);
+    
     err = create_files(g_files,
                        g_config->channel_count,
                        &g_time_start,
                        g_config->bin_dir,
-                       g_config->channel_numbers);
+                       g_config->channel_numbers,
+                       g_old_file_names);
 
 
     if( err != E502M_ERR_OK )
@@ -234,14 +248,14 @@ int main(int argc, char** argv)
         X502_Close(device_hnd);
         X502_Free(device_hnd);
 
-        destroy_pdouble_queue(data);
-        destroy_config(g_config);
-        free(g_files);
+        free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
 
     // main loop for receiving data
+
+    gettimeofday(&g_prev_time_start, NULL);
 
     while(!g_stop)
     {
@@ -263,8 +277,6 @@ int main(int argc, char** argv)
             printf("До эталонного количества сэмплов необходимо прочесть: %d сэмплов\n",
                     read_block_size);
 #endif
-
-            last_buffer_index = LAST_BUFFER;
             real_file_sizes = 0;
             current_file_sizes = 0;
             
@@ -281,8 +293,9 @@ int main(int argc, char** argv)
             // initialize time fields in header ---------------------
             struct tm *ts;
             
-            ts = gmtime(&g_time_start.tv_sec);
-            
+            // ts = gmtime(&g_time_start.tv_sec);
+            ts = gmtime(&g_prev_time_start.tv_sec);
+
             g_header.year               = 1900 + ts->tm_year;
             g_header.month              = ts->tm_mon + 1;
             g_header.day                = ts->tm_mday;
@@ -299,12 +312,21 @@ int main(int argc, char** argv)
             g_header.finish_usecond     = (int)g_time_start.tv_usec;
             // ------------------------------------------------------
 
+            g_prev_time_start = g_time_start;
+
             // last_buffer_index = NOT_LAST_BUFFER;
             read_block_size = g_config->read_block_size;
 #ifdef DBG
-            printf("Последний буфер прочитан\n");
+            printf("Последний буфер прочитан %d: \n", rcv_size);
 #endif
+            X502_GetNextExpectedLchNum(device_hnd, &first_lch);
 
+            adc_size = sizeof(double) * read_block_size;
+
+            err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
+                                       data, &adc_size, NULL, NULL);
+
+            push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, LAST_BUFFER);
         } else {
 
             rcv_size = X502_Recv(device_hnd,
@@ -312,27 +334,25 @@ int main(int argc, char** argv)
                                  read_block_size,
                                  read_timeout);
 
-            real_file_sizes += rcv_size;
-        }
 
-        X502_GetNextExpectedLchNum(device_hnd, &first_lch);
+            X502_GetNextExpectedLchNum(device_hnd, &first_lch);
 
-        adc_size = sizeof(double) * read_block_size;
+            adc_size = sizeof(double) * read_block_size;
 
-        err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
+            err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                    data, &adc_size, NULL, NULL);
 
-        push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, last_buffer_index);
-                    last_buffer_index = NOT_LAST_BUFFER;
+            push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, NOT_LAST_BUFFER);
+
+
+            real_file_sizes += rcv_size;
+        }
     }
 
+    X502_Close(device_hnd);
+    X502_Free(device_hnd);
 
-
-    // X502_Close(device_hnd);
-    // X502_Free(device_hnd);
-    // destroy_pdouble_queue(g_data_queue);
-    // destroy_config(g_config);
-    // free(g_files);
+    free_global_memory();
 
     return 0;
 }
@@ -373,6 +393,7 @@ void *write_data(void *arg)
 
     int ch_cntr, data_cntr; // counters
     int size;
+
     int total_file_size = FILE_TIME * (g_config->adc_freq / g_config->channel_count);
 
 #ifdef DBG
@@ -387,19 +408,16 @@ void *write_data(void *arg)
 
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
-
-    // int current_file_block_add = g_config->read_block_size / g_config->channel_count;
+    
     while(!g_stop)
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
 
         if(data != NULL)
         {   
-// #ifdef DBG
-//         printf("Пишу блок данных\n");
-// #endif 
+
             current_file_size += size/g_config->channel_count;  
-            // current_file_size += current_file_block_add;          
+        
             for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
             {                               
                 if(ch_cntr == g_config->channel_count){ ch_cntr = 0; } 
@@ -443,6 +461,8 @@ void *write_data(void *arg)
                 current_file_size = 0;
 
                 close_files(g_files,
+                            g_config->bin_dir,
+                            g_old_file_names,
                             g_config->channel_count,
                             &g_header,
                             g_config);
@@ -453,7 +473,8 @@ void *write_data(void *arg)
                              g_config->channel_count,
                              &g_time_start,
                              g_config->bin_dir,
-                             g_config->channel_numbers);
+                             g_config->channel_numbers,
+                             g_old_file_names);
 
                 // process the rests
 #ifdef DBG
@@ -507,8 +528,6 @@ void get_current_day_as_string(char **current_day)
 
     ts = gmtime(&g_time_start.tv_sec);
 
-    // printf("%s\n", *current_day);
-
     sprintf(*current_day,
             "%d_%02d_%02d",
             1900 + ts->tm_year,
@@ -542,4 +561,67 @@ void clear_dir()
     }
 
     free (current_day);
+}
+
+void free_global_memory()
+{
+    if( g_files != NULL )
+    {
+
+#ifdef DBG
+    printf("Особождаю память от заголовков файлов...\n");
+#endif
+         free(g_files);
+
+#ifdef DBG
+    printf("Память от заголовков файлов освобождена.\n");
+#endif
+         
+    }  
+
+    if( g_data_queue != NULL)
+    { 
+
+#ifdef DBG
+    printf("Разрушаю потокобезопасную очередь...\n");
+#endif
+        destroy_pdouble_queue(&g_data_queue); 
+
+#ifdef DBG
+    printf("Потокобезопасная очередь разрушена.\n");
+#endif        
+    }
+    
+    if( g_old_file_names != NULL )
+    {
+
+#ifdef DBG
+    printf("Особождаю память от массива старых имен файлов...\n");
+#endif
+        for(int i = 0; i < g_config->channel_count; i++)
+        {
+            free(g_old_file_names[i]);
+        }
+
+        free(g_old_file_names);
+
+#ifdef DBG
+    printf("Память от массива старых имен файлов освобождена.\n");
+#endif
+
+    } 
+
+    if ( g_config != NULL )
+    {
+
+ #ifdef DBG
+    printf("Разрушаю конфигурационную структуру...\n");
+#endif   
+         destroy_config(&g_config);
+
+#ifdef DBG
+    printf("Конфигурационная структура разрушена.\n");
+#endif 
+         
+    };
 }

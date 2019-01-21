@@ -80,11 +80,12 @@ for i in range(len(audio_files)):
         print("Файл: " +  audio_files[i])
         print("Количество сэмплов: ", len(data))
         print("Частота: ", freq)
-        # expect_samples = 
-        print("Ожидаемое количество сэмплов", freq * (td.seconds))
-        print("Разница в сэплах:", abs(len(data) - freq * (td.seconds )))
+        expect_samples = freq *  td.seconds + td.microseconds * freq / 1E6 
+        print("Ожидаемое количество сэмплов", expect_samples)
+        real_samples = len(data)
+        print("Разница в сэплах:", abs( real_samples - expect_samples ) )
         print("Заявленная частота: ", freq)
-        real_freq = len(data) / (td.seconds + td.microseconds / 10E6)
-        # real_freq = len(data) / 900
+        real_freq = len(data) / (td.seconds + td.microseconds / 1E6)
         print("Реальная частота: ", real_freq)
         print("Дивиация частоты: ", abs(real_freq - freq)/freq * freq/100 )
+        print()
