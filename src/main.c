@@ -177,7 +177,7 @@ int main(int argc, char** argv)
     int32_t  rcv_size;
     uint32_t first_lch;
     uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*g_config->read_block_size);
-    int total_file_sizes = FILE_TIME * g_config->adc_freq * g_config->channel_count;
+    int total_file_sizes = FILE_TIME * g_config->adc_freq;
     int current_file_sizes = 0;
     double* data;
 

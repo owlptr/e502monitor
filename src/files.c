@@ -125,7 +125,7 @@ void close_files(FILE **files,
                 hdr->start_minut,
                 hdr->start_second,
                 (int)hdr->start_usecond,
-                i);
+                cfg->channel_numbers[i]);
         
 #ifdef DBG
         printf("Переименовываю файл <%s> на <%s>\n", file_names[i], new_file_name);
