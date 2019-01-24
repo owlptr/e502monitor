@@ -22,6 +22,7 @@ int create_default_config()
         "# Частота дискретизации АЦП в Гц\n",
         "adc_freq = 10000.0\n",
         "\n",
+#ifdef DBG
         "# Количество отсчетов, считываемых за блок\n",
         "# read_block_size = 819200; #4096*200\n",
         "read_block_size = 20000\n",
@@ -29,6 +30,7 @@ int create_default_config()
         "# Таймаут на прием блока (мс)\n",
         "read_timeout = 2000\n",
         "\n",
+#endif // DBG
         "# Номера используемых физических каналов\n",
         "# Каждое значение в массиве должно иметь значение от 0 до 15\n",
         "# Количество значений должно равняться channel_count\n",
@@ -135,7 +137,8 @@ int init_config(e502monitor_config **config)
         config_destroy(&cfg);
         return E502M_ERR;
     }
-    
+
+#ifdef DBG
     err = config_lookup_int(&cfg, "read_block_size", &e502m_cfg->read_block_size);
     if(err == CONFIG_FALSE)
     { 
@@ -144,7 +147,11 @@ int init_config(e502monitor_config **config)
         config_destroy(&cfg);
         return E502M_ERR;
     }
-    
+#else
+    e502m_cfg->read_block_size = e502m_cfg->adc_freq / 2;
+#endif // DBG
+
+ #ifdef DBG    
     err = config_lookup_int(&cfg, "read_timeout", &e502m_cfg->read_timeout);
     if(err == CONFIG_FALSE)
     { 
@@ -153,6 +160,9 @@ int init_config(e502monitor_config **config)
         config_destroy(&cfg);
         return E502M_ERR;
     }
+#else
+    e502m_cfg->read_timeout = 2000;
+#endif // DBG
 
     err = config_lookup_int(&cfg, "count_of_day", &e502m_cfg->stored_days_count);
     if(err == CONFIG_FALSE)
