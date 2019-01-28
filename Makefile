@@ -18,7 +18,7 @@ HEADERS := src/common.h \
 		   src/pdouble_queue.h
 
 e502monitor: $(SOURCE) $(HEADERS)
-	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) -DDBG
+	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) #-DDBG
 
 clean:
 	rm e502monitor

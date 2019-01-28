@@ -105,7 +105,7 @@ int init_config(e502monitor_config **config)
         
         if( create_default_config() == E502M_ERR_OK )
         {
-            if( !config_read_file(&cfg, "e502monitor_default.cfg") )
+            if( !config_read_file(&cfg, "e502monitor.cfg") )
             {
                 printf("Ошибка при открытиии конфигурационного файла по-умолчанию\n");
                 return E502M_ERR;
