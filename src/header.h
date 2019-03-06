@@ -1,5 +1,13 @@
+/*
+    "header.h" contains declaration of output bin file's header  
+
+    Author: Gapeev Maksim
+*/
+
 #ifndef HEADER_H
 #define HEADER_H
+
+#include <time.h>
 
 // The structure that stores header for output bin files
 typedef struct {
@@ -22,5 +30,6 @@ typedef struct {
         char     place[101];             // Place of recording
         char     channel_name[51];       // Name of channel
 } header;
+
 
 #endif // HEADER_H

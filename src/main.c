@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
+#include <errno.h>
 
 static int            g_stop = 0; // if equal 1 - stop working
 static struct timeval g_time_start; // time of start writing file
@@ -177,7 +178,7 @@ int main(int argc, char** argv)
     int32_t  rcv_size;
     uint32_t first_lch;
     uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*g_config->read_block_size);
-    int total_file_sizes = FILE_TIME * g_config->adc_freq;
+    int total_file_sizes = g_config->file_size * g_config->adc_freq;
     int current_file_sizes = 0;
     double* data;
 
@@ -239,7 +240,6 @@ int main(int argc, char** argv)
                        g_config->bin_dir,
                        g_config->channel_numbers,
                        g_old_file_names);
-
 
     if( err != E502M_ERR_OK )
     {
@@ -349,6 +349,13 @@ int main(int argc, char** argv)
         }
     }
 
+    while(pthread_kill(thread, 0) != ESRCH){
+#ifdef DBG
+    printf("Ожидаю заверешения потока записи данных...\n");
+#endif
+        usleep(10);
+    }
+
     X502_Close(device_hnd);
     X502_Free(device_hnd);
 
@@ -394,7 +401,7 @@ void *write_data(void *arg)
     int ch_cntr, data_cntr; // counters
     int size;
 
-    int total_file_size = FILE_TIME * (g_config->adc_freq / g_config->channel_count);
+    int total_file_size = g_config->file_size * (g_config->adc_freq / g_config->channel_count);
 
 #ifdef DBG
     printf("Эталонное количество сэмплов в файле: %d\n", total_file_size);
@@ -409,7 +416,7 @@ void *write_data(void *arg)
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
     
-    while(!g_stop)
+    while(!g_stop || empty(g_data_queue))
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
 
@@ -520,6 +527,40 @@ void *write_data(void *arg)
 
     free(rest_buffers);
 
+    // initialize time in header
+
+    gettimeofday(&g_time_start, NULL);
+    gettimeofday(&g_time_end, NULL);
+
+    // initialize time fields in header ---------------------
+    struct tm *ts;
+            
+    // ts = gmtime(&g_time_start.tv_sec);
+    ts = gmtime(&g_prev_time_start.tv_sec);
+
+    g_header.year               = 1900 + ts->tm_year;
+    g_header.month              = ts->tm_mon + 1;
+    g_header.day                = ts->tm_mday;
+    g_header.start_hour         = ts->tm_hour;
+    g_header.start_minut        = ts->tm_min;
+    g_header.start_second       = ts->tm_sec;
+    g_header.start_usecond      = (int)g_time_start.tv_usec;
+            
+    ts = gmtime(&g_time_end.tv_sec);
+            
+    g_header.finish_hour        = ts->tm_hour;
+    g_header.finish_minut       = ts->tm_min;
+    g_header.finish_second      = ts->tm_sec;
+    g_header.finish_usecond     = (int)g_time_start.tv_usec;
+    // ------------------------------------------------------
+    
+    // close files
+    close_files(g_files,
+                g_config->bin_dir,
+                g_old_file_names,
+                g_config->channel_count,
+                &g_header,
+                g_config);
 }
 
 void get_current_day_as_string(char **current_day)

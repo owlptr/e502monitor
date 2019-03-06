@@ -100,3 +100,8 @@ void destroy_pdouble_queue(pdouble_queue **pd_queue)
     pthread_mutex_destroy(&((*pd_queue)->mutex));
     free( (*pd_queue) );
 }
+
+int empty(pdouble_queue *pd_queue)
+{
+    return pd_queue->head == NULL? 1 : 0;
+}

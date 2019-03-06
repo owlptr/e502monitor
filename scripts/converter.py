@@ -62,43 +62,58 @@ for bfn in bin_file_names:
 
     prop_file = open(out_path + name + ".prop", "w")
 
-    prop_file.write("Время начала записи\t\t:" + str(year) + ":" + \
-       str(start_hour) + ":" + str(start_minut) + ":"  + \
-       str(start_second) + ":" + str(start_usecond))
+    prop_file.write("begintime=" + str(year) + "-" + str(month) + "-" + str(day) + " " + \
+        str(start_hour) + ":" + str(start_minut) + ":" + str(start_second) + ":" + \
+        str(start_second)) 
 
-    prop_file.write("\nВремя окончания записи\t:" + str(year) + ":" + \
-       str(finish_hour) + ":" + str(finish_minut) + ":" + \
-       str(finish_second) + ":" + str(finish_usecond))
+    prop_file.write("endtime=" + str(year) + "-" + str(month) + "-" + str(day) + " " + \
+        str(start_hour) + ":" + str(start_minut) + ":" + str(start_second) + ":" + \
+        str(start_second)) 
 
 
-    prop_file.write("\nНомер канала\t\t\t:" + str(channel_number))
-    prop_file.write("\nЧастота\t\t\t\t\t:" + str(freq))
-    prop_file.write("\nРежим измерения\t\t\t:" + str(mode))
-    prop_file.write("\nДиапазон измерения\t\t:" + str(ch_range))
+    prop_file.write("\nchannelnumber=" + str(channel_number))
+    prop_file.write("\nfrequency=" + str(freq))
 
-    prop_file.write("\nМодель АЦП\t\t\t\t:")
+    if mode == 0: mode = "Измерение напряжения относительно общей земли"
+    elif mode == 1: mode = "Дифференциальное измерение напряжения"
+    elif mode == 2: mode = "Измерения собственного нуля" 
+
+    if ch_range == 0: ch_range = "10V"
+    elif ch_range == 1: ch_range = "5V"
+    elif ch_range == 2: ch_range = "2V" 
+    elif ch_range == 3: ch_range = "1V"
+    elif ch_range == 4: ch_range = "0.5V"
+    elif ch_range == 5: ch_range = "0.2V"   
+    
+    prop_file.write("\nmode=" + mode)
+    prop_file.write("\nrange=" + ch_range)
+
+    prop_file.write("\nadc=")
     for c in module_name:
         if c.isdigit() or c.isalpha() or c.isspace():
             prop_file.write(c)
 
-    prop_file.write("\nМесто измерения\t\t\t:")
+    prop_file.write("\nplace=")
     for c in place_name:
         if c.isdigit() or c.isalpha() or c.isspace():
             prop_file.write(c)    
 
-    prop_file.write("\nНазвание канала\t\t\t:")
+    prop_file.write("\nchannelname=")
     for c in channel_name:
         if c.isdigit() or c.isalpha() or c.isspace():
             prop_file.write(c)    
 
-    prop_file.close()
+
 
 
     bin_file.read(5) # skip 5 bytes
 
     data = array.array('d', bin_file.read())
 
+    prop_file.write("\nsamples=" + str(len(data)))
+
+    prop_file.close()
+
     sf.write(out_path + name + ".wav", data, int(freq))
 
     bin_file.close()
-

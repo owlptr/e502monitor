@@ -24,6 +24,7 @@ typedef struct{
     char    place[101];         // Name of the recording place
     char**  channel_names;      // Names of using channels 
     int     stored_days_count;  // Count of days that be stored
+    int     file_size;          // File size in seconds
     
 } e502monitor_config;
 

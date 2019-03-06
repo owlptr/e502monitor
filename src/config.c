@@ -24,13 +24,15 @@ int create_default_config()
         "\n",
 #ifdef DBG
         "# Количество отсчетов, считываемых за блок\n",
-        "# read_block_size = 819200; #4096*200\n",
         "read_block_size = 20000\n",
         "\n",
         "# Таймаут на прием блока (мс)\n",
         "read_timeout = 2000\n",
         "\n",
 #endif // DBG
+        "# Размер выходных файлов (в секундах) \n",
+        "file_size = 900\n",
+        "\n"
         "# Номера используемых физических каналов\n",
         "# Каждое значение в массиве должно иметь значение от 0 до 15\n",
         "# Количество значений должно равняться channel_count\n",
@@ -169,6 +171,15 @@ int init_config(e502monitor_config **config)
     { 
         printf("Ошибка конфигурационного файла:\tвременное окно не задано!\n");
         
+        config_destroy(&cfg);
+        return E502M_ERR;
+    }
+
+    err = config_lookup_int(&cfg, "file_size", &e502m_cfg->file_size);
+    if(err = CONFIG_FALSE)
+    {
+        printf("Ошибка конфигурационного файла:\t размер выходных файлов не задан!\n");
+
         config_destroy(&cfg);
         return E502M_ERR;
     }
@@ -333,6 +344,7 @@ void print_config(e502monitor_config *config)
     printf(" Количество используемых логических каналов\t\t:%d\n", config->channel_count);
     printf(" Частота сбора АЦП в Гц\t\t\t\t\t:%f\n", config->adc_freq);
     printf(" Количество отсчетов, считываемых за блок\t\t:%d\n", config->read_block_size);
+    printf(" Размер файлов (в секундах)\t\t\t\t:%d\n", config->file_size);
     printf(" Таймаут перед считываением блока (мс)\t\t\t:%d\n", config->read_timeout);
     printf(" Количество сохраняемых дней\t\t\t\t:%d\n", config->stored_days_count);
     printf(" Номера используемых каналов\t\t\t\t:[ ");

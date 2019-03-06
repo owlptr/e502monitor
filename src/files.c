@@ -113,6 +113,9 @@ void close_files(FILE **files,
 
         fclose(files[i]);
 
+        // set NULL as marker
+        files[i] = NULL;
+
         // rename files (for correcting start time)
 
         sprintf(new_file_name, 
@@ -188,8 +191,9 @@ int remove_day(char *path)
 
     int result = rmdir(path);
 
+#ifdef DBG
     printf("Результат удаление: %d\n", result);
-
+#endif // DBG
     free(namelist);
 
     return E502M_ERR_OK;

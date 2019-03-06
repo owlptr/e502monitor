@@ -54,4 +54,6 @@ void pop_from_pdqueue(pdouble_queue *pd_queue,
 
 void destroy_pdouble_queue(pdouble_queue **pd_queue);
 
+int empty(pdouble_queue *pd_queue);
+
 #endif // PDOUBLE_QUEUE_H
