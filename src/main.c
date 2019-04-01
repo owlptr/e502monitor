@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
@@ -61,6 +62,14 @@ void free_global_memory();
     Clear data directory. Delete old days.
 */
 void clear_dir();
+
+// /*
+//     Reconect to device.
+
+//     attempts_nmbr - the number of attempts to establish a connection
+//     time_out - waiting time for another attempt 
+// */
+// void reconect_to_device(int time_out, int attempts_nmbr);
 
 int main(int argc, char** argv)
 {
@@ -257,6 +266,8 @@ int main(int argc, char** argv)
 
     gettimeofday(&g_prev_time_start, NULL);
 
+    int is_need_restart = 0; // 0 - not, 1 - yes
+
     while(!g_stop)
     {
         data = (double*)malloc(sizeof(double) * read_block_size);
@@ -286,6 +297,14 @@ int main(int argc, char** argv)
                                  rcv_buf,
                                  read_block_size,
                                  read_timeout);
+            
+            if(rcv_size < 0) // some errors
+            {
+                printf("\nERROR: Ошибка получения данных!\n");
+                g_stop = 1; 
+                is_need_restart = 1;
+                break; // exit from receiving data loop 
+            }
 
             gettimeofday(&g_time_start, NULL);
             gettimeofday(&g_time_end, NULL);
@@ -319,6 +338,7 @@ int main(int argc, char** argv)
 #ifdef DBG
             printf("Последний буфер прочитан %d: \n", rcv_size);
 #endif
+
             X502_GetNextExpectedLchNum(device_hnd, &first_lch);
 
             adc_size = sizeof(double) * read_block_size;
@@ -333,7 +353,16 @@ int main(int argc, char** argv)
                                  rcv_buf,
                                  read_block_size,
                                  read_timeout);
+            
+            // printf("RCV_Size = %d\n", rcv_size);
 
+            if(rcv_size < 0) // some errors
+            {
+                printf("\nERROR: Ошибка получения данных!\n");
+                g_stop = 1; 
+                is_need_restart = 1;
+                break; // exit from receiving data loop 
+            }
 
             X502_GetNextExpectedLchNum(device_hnd, &first_lch);
 
@@ -341,7 +370,6 @@ int main(int argc, char** argv)
 
             err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                    data, &adc_size, NULL, NULL);
-
             push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, NOT_LAST_BUFFER);
 
 
@@ -360,6 +388,12 @@ int main(int argc, char** argv)
     X502_Free(device_hnd);
 
     free_global_memory();
+
+    if(is_need_restart)
+    {
+        printf("Пытаюсь перезапуститься...\n");
+        system("./e502monitor");
+    }
 
     return 0;
 }
@@ -416,7 +450,7 @@ void *write_data(void *arg)
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
     
-    while(!g_stop || empty(g_data_queue))
+    while(!g_stop || !empty(g_data_queue))
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
 
