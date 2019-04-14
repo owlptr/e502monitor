@@ -8,6 +8,7 @@
 #include "files.h"
 #include "header.h"
 #include "device.h"
+#include "logging.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -73,42 +74,34 @@ void clear_dir();
 
 int main(int argc, char** argv)
 {
+    logg("Программа запущена");
 
-#ifdef DBG
-    printf("Создаю обработчик для события завершения сбора данных.\n");
-#endif
-
+    logg("Создаю обработчик для события завершения сбора данных");
     create_stop_event_handler();
 
-#ifdef DBG
-    printf("Создаю очередь для хранения данных.\n");
-#endif
-    
+    logg("Создаю очередь для хранения данных");
     g_data_queue = create_pdouble_queue();
 
-#ifdef DBG
-    printf("Создаю структуру для конфигурирования.\n");
-#endif
-
+    logg("Создаю структуру для конфигурирования");
     g_config = create_config();
 
     if( g_config == NULL )
     {
         printf("Ошибка создания конфигурации. Завершение.\n");
+        logg("Ошибка создания конфигурации. Завершение.");
 
         free_global_memory();
 
         return E502M_EXIT_FAILURE;
     }
 
-#ifdef DBG
-    printf("Инициализирую структуру для конфигурирования.\n");
-#endif
+    logg("Инициализирую структуру для конфигурирования");
 
     if ( init_config(&g_config) != E502M_ERR_OK )
 
     {
         printf("Ошибка конфигурационного файла. Заверешние.\n");
+        logg("Ошибка конфигурационного файла. Заверешние");
 
         free_global_memory();
 
@@ -120,12 +113,18 @@ int main(int argc, char** argv)
     uint32_t fnd_devcnt = 0;
     t_x502_devrec *devrec_list = NULL;
 
-    fnd_devcnt = get_usb_devrec(&devrec_list);
+    // try to connect
+    int point_counter = 0;
+    printf("Поиск устройств...\n");
+    while(fnd_devcnt == 0  && !g_stop){
+        fnd_devcnt = get_usb_devrec(&devrec_list);
+        usleep(1000000);
+    }
     
     if (fnd_devcnt == 0) 
     {
         printf("Не найдено ни одного модуля. Завершение.\n");
-
+        logg("Не найдено ни одного модуля. Завершение");
         free_global_memory();
 
         return E502M_EXIT_FAILURE;
@@ -147,6 +146,7 @@ int main(int argc, char** argv)
     if( device_id < 0 || device_id >= fnd_devcnt)
     {
         printf("\nНеверный номер модуля! Завершение.\n");
+        logg("Указан неверный номер модуля! Завершение");
 
         X502_FreeDevRecordList(devrec_list, fnd_devcnt);
         free(devrec_list);
@@ -162,7 +162,8 @@ int main(int argc, char** argv)
     if(device_hnd == NULL)
     {
         printf("Ошибка установления связи с модулем. Завершение.\n");
-
+        logg("Ошибка установления связи с модулем. Завершение");
+        
         X502_FreeDevRecordList(devrec_list, fnd_devcnt);
         free(devrec_list);
 
@@ -199,9 +200,7 @@ int main(int argc, char** argv)
         g_old_file_names[i] = (char*)malloc(sizeof(char) * 101);
     }
 
-#ifdef DBG
-    printf("Создаю файлы\n");
-#endif
+    logg("Создаю файлы");
 
     gettimeofday(&g_time_start, NULL);
     
@@ -209,9 +208,7 @@ int main(int argc, char** argv)
 
     g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
 
-#ifdef DBG
-    printf("Создаю отдельный поток для записи данных\n");
-#endif
+    logg("Создаю отдельный поток для записи данных");
 
     uint32_t  err = X502_StreamsStart(device_hnd);
     if(err != X502_ERR_OK)
@@ -220,6 +217,7 @@ int main(int argc, char** argv)
                 "Ошибка запуска сбора данных: %s!\n",
                 X502_GetErrorString(err)
                 );
+        logg("Ошибка запуска сбора данных");
 
         free_global_memory();
 
@@ -252,7 +250,7 @@ int main(int argc, char** argv)
 
     if( err != E502M_ERR_OK )
     {
-        printf("Ошибка создания описателей выходных файлов!\n");
+        logg("Ошибка создания описателей выходных файлов");
 
         X502_Close(device_hnd);
         X502_Free(device_hnd);
@@ -283,11 +281,11 @@ int main(int argc, char** argv)
         {
             read_block_size = total_file_sizes - real_file_sizes;
             
-#ifdef DBG
-            printf("Считано сэмплов: %d\n", real_file_sizes);
-            printf("До эталонного количества сэмплов необходимо прочесть: %d сэмплов\n",
-                    read_block_size);
-#endif
+// #ifdef DBG
+//             logg("Считано сэмплов: %d", real_file_sizes);
+//             logg("До эталонного количества сэмплов необходимо прочесть сэмплов: %d",
+//                  read_block_size);
+// #endif
             real_file_sizes = 0;
             current_file_sizes = 0;
             
@@ -300,7 +298,8 @@ int main(int argc, char** argv)
             
             if(rcv_size < 0) // some errors
             {
-                printf("\nERROR: Ошибка получения данных!\n");
+                logg("Ошибка получения данных");
+
                 g_stop = 1; 
                 is_need_restart = 1;
                 break; // exit from receiving data loop 
@@ -336,7 +335,8 @@ int main(int argc, char** argv)
             // last_buffer_index = NOT_LAST_BUFFER;
             read_block_size = g_config->read_block_size;
 #ifdef DBG
-            printf("Последний буфер прочитан %d: \n", rcv_size);
+            printf("Последний буфер прочитан %d", rcv_size);
+            logg("Последний буфер прочитан");
 #endif
 
             X502_GetNextExpectedLchNum(device_hnd, &first_lch);
@@ -358,7 +358,7 @@ int main(int argc, char** argv)
 
             if(rcv_size < 0) // some errors
             {
-                printf("\nERROR: Ошибка получения данных!\n");
+                logg("Ошибка получения данных");
                 g_stop = 1; 
                 is_need_restart = 1;
                 break; // exit from receiving data loop 
@@ -380,6 +380,7 @@ int main(int argc, char** argv)
     while(pthread_kill(thread, 0) != ESRCH){
 #ifdef DBG
     printf("Ожидаю заверешения потока записи данных...\n");
+    logg("Ожидаю заверешения потока записи данных");
 #endif
         usleep(10);
     }
@@ -392,6 +393,7 @@ int main(int argc, char** argv)
     if(is_need_restart)
     {
         printf("Пытаюсь перезапуститься...\n");
+        logg("Перезапуск");
         system("./e502monitor");
     }
 
@@ -490,14 +492,16 @@ void *write_data(void *arg)
             if(last_buffer_index == LAST_BUFFER)
             {
 
-#ifdef DBG
             for(ch_cntr = 0; ch_cntr < g_config->channel_count; ch_cntr++)
             {
-                printf("Количество сэмплов в файле канала %d = %d\n",
+                char log_msg[100] = "";
+                sprintf(log_msg,
+                        "Количество сэмплов в файле канала %d = %d",    
                         ch_cntr,
                         file_sizes[ch_cntr]);
+                logg(log_msg);
             }
-#endif
+
 
                 current_file_size = 0;
 
@@ -518,17 +522,19 @@ void *write_data(void *arg)
                              g_old_file_names);
 
                 // process the rests
-#ifdef DBG
-                printf("Обрабатываю остаток\n");
-#endif
+
+                logg("Обрабатываю остаток");
+
                 for(ch_cntr = 0; ch_cntr < g_config->channel_count; ch_cntr++)
                 {
                     if(rest_buffer_sizes[ch_cntr] == 0){ continue; }
-#ifdef DBG  
-                    printf("Остаток файла для канала %d = %d\n", 
-                           ch_cntr,
-                           rest_buffer_sizes[ch_cntr]);
-#endif
+
+                    char log_msg[100] = "";
+                    sprintf(log_msg, 
+                            "Остаток файла для канала %d = %d",
+                            ch_cntr,
+                            rest_buffer_sizes[ch_cntr]);
+                    logg(log_msg);
 
                     fwrite(rest_buffers[ch_cntr],
                            sizeof(double),
@@ -613,15 +619,11 @@ void get_current_day_as_string(char **current_day)
 void clear_dir()
 {
     char *current_day = (char*)malloc(sizeof(char) * 100);
-#ifdef DBG
-    printf("Вычисляю день в виде строки...\n");
-#endif   
-
+    
+    logg("Вычисляю день в виде строки.");
     get_current_day_as_string(&current_day);
 
-#ifdef DBG
-    printf("Проверяю необходимость очистки директории...\n");
-#endif
+    logg("Проверяю необходимость очистки директории");
 
     int remove_days_count = is_need_clear_dir(g_config->bin_dir,
                                               current_day,
@@ -629,9 +631,11 @@ void clear_dir()
 
     if( remove_days_count > 0 )
     {
-#ifdef DBG
-    printf("Необходимо удалить %d дней\n", remove_days_count);
-#endif
+        
+        char log_msg[100] = "";
+        sprintf(log_msg, "Необходимо удалить дней: %d", remove_days_count);
+        logg(log_msg);
+
         remove_days(g_config->bin_dir, current_day, remove_days_count);
     }
 
@@ -643,36 +647,30 @@ void free_global_memory()
     if( g_files != NULL )
     {
 
-#ifdef DBG
-    printf("Особождаю память от заголовков файлов...\n");
-#endif
-         free(g_files);
+        logg("Особождаю память от заголовков файлов");
 
-#ifdef DBG
-    printf("Память от заголовков файлов освобождена.\n");
-#endif
+        free(g_files);
+
+        logg("Память от заголовков файлов освобождена");
          
     }  
 
     if( g_data_queue != NULL)
     { 
 
-#ifdef DBG
-    printf("Разрушаю потокобезопасную очередь...\n");
-#endif
+        logg("Разрушаю потокобезопасную очередь");
+
         destroy_pdouble_queue(&g_data_queue); 
 
-#ifdef DBG
-    printf("Потокобезопасная очередь разрушена.\n");
-#endif        
+
+        logg("Потокобезопасная очередь разрушена");        
     }
     
     if( g_old_file_names != NULL )
     {
 
-#ifdef DBG
-    printf("Особождаю память от массива старых имен файлов...\n");
-#endif
+        logg("Особождаю память от массива старых имен файлов");
+        
         for(int i = 0; i < g_config->channel_count; i++)
         {
             free(g_old_file_names[i]);
@@ -680,23 +678,21 @@ void free_global_memory()
 
         free(g_old_file_names);
 
-#ifdef DBG
-    printf("Память от массива старых имен файлов освобождена.\n");
-#endif
+        logg("Память от массива старых имен файлов освобождена.\n");
+
 
     } 
 
     if ( g_config != NULL )
     {
 
- #ifdef DBG
-    printf("Разрушаю конфигурационную структуру...\n");
-#endif   
-         destroy_config(&g_config);
 
-#ifdef DBG
-    printf("Конфигурационная структура разрушена.\n");
-#endif 
+        logg("Разрушаю конфигурационную структуру");
+   
+        destroy_config(&g_config);
+
+        logg("Конфигурационная структура разрушена");
+ 
          
     };
 }

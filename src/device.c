@@ -1,5 +1,6 @@
 #include "device.h"
 #include "common.h"
+#include "logging.h"
 
 uint32_t get_usb_devrec(t_x502_devrec **devrec_list)
 {
@@ -52,6 +53,8 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
     if (hnd == NULL) 
     {
         printf("Ошибка создания описателя модуля!");
+        logg("Ошибка создания описателя модуля");
+        
         return hnd;
     }
     
@@ -61,6 +64,7 @@ t_x502_hnd open_device( t_x502_devrec *devrec_list,
     {
         printf("Ошибка установления связи с модулем: %s!",
                 X502_GetErrorString(err));
+        logg("Ошибка установления связи с модулем");
 
         X502_Free(hnd);
         hnd = NULL;
@@ -75,9 +79,10 @@ int print_info_about_device(t_x502_hnd *device_hnd)
     t_x502_info info;
     uint32_t err = X502_GetDevInfo(device_hnd, &info);
     if (err != X502_ERR_OK) {
-        printf("Ошибка получения серийного информации о модуле: %s!",
+        printf("Ошибка получения серийной информации о модуле: %s!",
                X502_GetErrorString(err) 
               );
+        logg("Ошибка получения серийной информации о модуле");
         return err;
     } 
 

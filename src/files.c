@@ -1,5 +1,7 @@
 #include "files.h"
 #include "common.h"
+#include "logging.h"
+
 #include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
@@ -28,22 +30,30 @@ int create_files(FILE **files,
 
     if( stat(dir_name, &st) == -1 ) // if directory not exist
     {
-#ifdef DBG  
-        printf("Директория: %s недоступна. Создаю.\n", dir_name);
-#endif
+
+        char log_msg[500] = "";
+
+        sprintf(log_msg, "Директория: %s недоступна. Создаю", dir_name);
+
+        logg(log_msg);
+
         if( mkdir(dir_name, 0700) != 0) 
         {
-             printf("Не могу создать директорию для выходных фалов.\n"
+            printf("Не могу создать директорию для выходных фалов.\n"
                     "Ошибка в пути? Нет прав на запись?\n");
 
-                return E502M_ERR;
+            logg("Не могу создать директорию для выходных фалов. "
+                 "Ошибка в пути? Нет прав на запись?");
+
+            return E502M_ERR;
         }
     }
 
-#ifdef DBG
-        printf("Создаю файлы в директории: %s\n", dir_name);
-#endif   
+    char log_msg[500]  = "";
 
+    sprintf(log_msg, "Создаю файлы в директории: %s", dir_name); 
+    logg(log_msg);
+    
     for(int i = 0; i < files_count; ++i)
     {  
         char file_name[500] = "";
@@ -61,9 +71,10 @@ int create_files(FILE **files,
                 channel_numbers[i]);
         
         strcpy(stored_file_names[i], file_name);
-#ifdef DBG
-        printf("Создаю файл :%s\n", file_name);
-#endif
+        
+        sprintf(log_msg, "Создаю файл :%s", file_name);
+        logg(log_msg);
+
         files[i] = fopen(file_name, "wb");
         
         // Skip sizeof(header) bytes, because we will wright header, 
@@ -82,9 +93,7 @@ void close_files(FILE **files,
                  e502monitor_config *cfg)
 {
 
-#ifdef DBG
-    printf("Заканчиваю запись файлов...\n");
-#endif
+    logg("Заканчиваю запись файлов");
 
     char new_file_name[500] = "";
     char path_to_file[500] = "";
@@ -130,37 +139,40 @@ void close_files(FILE **files,
                 (int)hdr->start_usecond,
                 cfg->channel_numbers[i]);
         
-#ifdef DBG
-        printf("Переименовываю файл <%s> на <%s>\n", file_names[i], new_file_name);
-#endif
+        char log_msg[500] = "";
+
+        sprintf(log_msg, 
+                "Переименовываю файл <%s> на <%s>",
+                file_names[i], new_file_name);
+        logg(log_msg);
 
         rename(file_names[i], new_file_name);
     }
 
-#ifdef DBG
-    printf("Файлы записаны.\n");
-#endif
+
+    logg("Файлы записаны");
 
 }
 
 int remove_day(char *path)
 {
-#ifdef DBG
-    printf("Удаление дня: %s\n", path);
-#endif
+    char log_msg[500] = "";
+    sprintf(log_msg, "Удаление дня: %s", path);
+    logg(log_msg);
+
     struct dirent **namelist;
 
     int n = scandir(path, &namelist, NULL, alphasort);
 
-#ifdef DBG
-    printf("Удаляем файлов: %d\n", (n - 2));
-#endif
+
+    sprintf(log_msg, "Удаляем файлов: %d\n", (n - 2));
+    logg(log_msg);
 
     if( n < 0 )
     {
-#ifdef DBG
-    printf("Упс..: %d\n", n);
-#endif
+// #ifdef DBG
+    logg("Ошибка очитски директории");
+// #endif
         return E502M_ERR;
     }
 
@@ -170,9 +182,9 @@ int remove_day(char *path)
             strcmp(namelist[n]->d_name, "..") == 0)
         {
 
-#ifdef DBG
-            printf("Пропускаю %s\n", namelist[n]->d_name);
-#endif
+// #ifdef DBG
+//             printf("Пропускаю %s\n", namelist[n]->d_name);
+// #endif
         } else {
             char remove_file[200] = "";
             
@@ -181,9 +193,9 @@ int remove_day(char *path)
             strcat(remove_file, namelist[n]->d_name);
 
             remove(remove_file);
-#ifdef DBG
-            printf("Удаляю файл: %s\n", remove_file);
-#endif
+
+            sprintf(log_msg, "Удаляю файл: %s\n", remove_file);
+            logg(log_msg);
         }
 
         free(namelist[n]);
@@ -191,9 +203,10 @@ int remove_day(char *path)
 
     int result = rmdir(path);
 
-#ifdef DBG
-    printf("Результат удаление: %d\n", result);
-#endif // DBG
+
+    sprintf(log_msg, "Результат удаление: %d", result);
+    logg(log_msg);
+
     free(namelist);
 
     return E502M_ERR_OK;
@@ -204,9 +217,9 @@ int is_need_clear_dir(char *path,
                       int stored_days_count)
 {
     struct dirent **namelist;
-#ifdef DBG
-    printf("Сканирую директорию\n");
-#endif
+
+    logg("Сканирую директорию");
+
     int n = scandir(path, &namelist, NULL, alphasort);
 
     if( n < 0 )
@@ -282,9 +295,7 @@ int remove_days( char *path, char *current_day, int count )
 
     free(namelist);
 
-#ifdef DBG
-    printf("Дни удалены\n");
-#endif
+    logg("Дни удалены");
 
     return E502M_ERR_OK;
 }

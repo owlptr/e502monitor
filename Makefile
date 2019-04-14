@@ -8,6 +8,7 @@ SOURCE := src/config.c \
 		  src/device.c \
 		  src/files.c \
 		  src/main.c \
+		  src/logging.c \
 		  src/pdouble_queue.c
 
 HEADERS := src/common.h \
@@ -15,10 +16,11 @@ HEADERS := src/common.h \
 		   src/device.h \
 		   src/files.h \
 		   src/header.h \
+		   src/logging.h \
 		   src/pdouble_queue.h
 
 e502monitor: $(SOURCE) $(HEADERS)
-	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) #-DDBG
+	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) -DDBG
 
 clean:
 	rm e502monitor
