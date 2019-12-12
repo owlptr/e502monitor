@@ -713,9 +713,8 @@ void free_global_memory()
 
 void print_program_info()
 {
-    char name_version_info[128];
+    char name_version_info[128] = "e502monitor (version: ";
 
-    strcat(name_version_info, "e502monitor (version: ");
     strcat(name_version_info, VERSION);
     strcat(name_version_info, ")\n");
 

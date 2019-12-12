@@ -32,14 +32,14 @@ typedef struct{
 } e502monitor_config;
 
 /*
-    Create default "e502monitor.cfg" config file.
+    Creates default "e502monitor.cfg" config file.
 
     Return error index.
 */
 int create_default_config();
 
 /*
-    Print information about configuration.
+    Prints information about configuration.
 
     config - configuration for printing.
 */
@@ -56,14 +56,14 @@ void print_config(e502monitor_config *config);
 e502monitor_config* create_config();
 
 /*
-    Free memory from e502monitor_config structure.
+    Frees memory from e502monitor_config structure.
 
     config - pointer to pointer to allocated memory
 */
 void destroy_config(e502monitor_config **config);
 
 /*
-    Initialize configuration
+    Initializes configuration
 
     config - pointer to pointer 
              to special settings 
