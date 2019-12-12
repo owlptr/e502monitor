@@ -1,3 +1,14 @@
+/*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "files.c" contains realization of functions
+    for writing data on disk
+
+    Author: Gapeev Maksim
+    Email: gm16493@gmail.com
+*/
+
 #include "files.h"
 #include "common.h"
 #include "logging.h"

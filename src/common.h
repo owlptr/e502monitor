@@ -1,7 +1,11 @@
 /*
-    "common.h" contains some of defines
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "common.h" contains some of defines.
 
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 
 #ifndef COMMON_H
@@ -14,5 +18,7 @@
 #define MAX_CHANNELS 16
 
 #define TCP_CONNECTION_TOUT 5000
+
+#define VERSION "0.8"
 
 #endif // COMMON_H

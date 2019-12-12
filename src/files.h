@@ -1,8 +1,12 @@
 /*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
     "files.h" contains declaration of functions
     for writing data on disk
 
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 
 #ifndef FILES_H

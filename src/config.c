@@ -1,3 +1,14 @@
+/*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "config.c contains realization of function for 
+    create and use configuration file.
+
+    Author: Gapeev Maksim
+    Email: gm16493@gmail.com
+ */
+
 #include "config.h"
 #include "common.h"
 

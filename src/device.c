@@ -1,3 +1,14 @@
+/*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "device.c" contains declaration of function
+    for working with Lard E502.
+    
+    Author: Gapeev Maksim
+    Email: gm16493@gmail.com
+*/
+
 #include "device.h"
 #include "common.h"
 #include "logging.h"
