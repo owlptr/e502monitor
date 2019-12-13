@@ -1,8 +1,12 @@
 /*
-    "device.h" contains declaration of function
-    for working with Lard E502  
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+    
+    "device.h" contains declaration of functions
+    for working with Lard E502.  
 
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 #ifndef DEVICE_H
 #define DEVICE_H

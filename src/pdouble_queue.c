@@ -1,5 +1,13 @@
 /*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+    
+    "pdouble_queue.h" contains declaration of
+    functions to use and create safe-thread queue
+    contained double data array.
+
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 
 #include "pdouble_queue.h"

@@ -1,7 +1,11 @@
 /*
-    "header.h" contains declaration of output bin file's header  
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+    
+    "header.h" contains declaration of output bin file's header.  
 
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 
 #ifndef HEADER_H
@@ -9,7 +13,7 @@
 
 #include <time.h>
 
-// The structure that stores header for output bin files
+// The structure that stores header for output bin files.
 typedef struct {
         int      year;                   // Year of creating bin file
         int      month;                  // Month of creating bin file

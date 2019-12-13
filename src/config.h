@@ -1,9 +1,12 @@
 /*
-    "config.h" contains declarations of functions for
-    program configuration
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "config.h" contains declaration of functions for 
+    create and use configuration file.
     
     Author: Gapeev Maksim
-
+    Email: gm16493@gmail.com
 */
 
 #ifndef CONFIG_H
@@ -29,38 +32,38 @@ typedef struct{
 } e502monitor_config;
 
 /*
-    Create default "e502monitor.cfg" config file.
+    Creates default "e502monitor.cfg" config file.
 
     Return error index.
 */
 int create_default_config();
 
 /*
-    Print information about configuration.
+    Prints information about configuration.
 
     config - configuration for printing.
 */
 void print_config(e502monitor_config *config);
 
 /*
-    Allocate memory for e502monitor_config
+    Allocates memory for e502monitor_config
     structure.
 
-    Return pointer to e502monitor_config structure
+    Returns pointer to e502monitor_config structure.
 
-    If something was wrong return NULL
+    If something was wrong returns NULL.
 */
 e502monitor_config* create_config();
 
 /*
-    Free memory from e502monitor_config structure.
+    Frees memory from e502monitor_config structure.
 
     config - pointer to pointer to allocated memory
 */
 void destroy_config(e502monitor_config **config);
 
 /*
-    Initialize configuration
+    Initializes configuration
 
     config - pointer to pointer 
              to special settings 

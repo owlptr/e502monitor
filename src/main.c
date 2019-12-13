@@ -1,5 +1,11 @@
 /*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    The main file of programm. It contains main function.
+
     Author: Gapeev Maksim
+    Email: gm16493@gmail.com
 */
 
 #include "pdouble_queue.h"
@@ -31,7 +37,7 @@ static pdouble_queue* g_data_queue = NULL; // queue for stored data
 static char **g_old_file_names = NULL; // array of old file names
 
 /*
-    Create stop event heandler for
+    Creates stop event heandler for
     correct completion of data collection 
 */
 void create_stop_event_handler();
@@ -43,29 +49,35 @@ void abort_handler(int sig);
 
 /*
     Function for running in another thread.
-    Write data on disk.
+    Writes data on disk.
 */
 void* write_data(void *arg);
 
 /*
-    Return current day as string.
+    Returns current day as string.
 
     current_day - pointer to pointer to return char array
 */
 void get_current_day_as_string(char **current_day);
 
 /*
-    Free memory from global variables
+    Frees memory from global variables
 */
 void free_global_memory();
 
 /*
-    Clear data directory. Delete old days.
+    Clears data directory. Delete old days.
 */
 void clear_dir();
 
+/*
+    Prints the program info
+*/
+
+void print_program_info();
+
 // /*
-//     Reconect to device.
+//     Reconects to device.
 
 //     attempts_nmbr - the number of attempts to establish a connection
 //     time_out - waiting time for another attempt 
@@ -74,6 +86,8 @@ void clear_dir();
 
 int main(int argc, char** argv)
 {
+    print_program_info();
+
     logg("Программа запущена");
 
     logg("Создаю обработчик для события завершения сбора данных");
@@ -695,4 +709,18 @@ void free_global_memory()
  
          
     };
+}
+
+void print_program_info()
+{
+    char name_version_info[128] = "e502monitor (version: ";
+
+    strcat(name_version_info, VERSION);
+    strcat(name_version_info, ")\n");
+
+    printf(name_version_info);
+    printf("Программа для сбора данных при помощи LCard E-502\n\n");
+    printf("Автор: Гапеев Максим\n");
+    printf("Email: gm16493@gmail.com\n\n");
+
 }

@@ -1,11 +1,25 @@
+/*
+    This file part of e502monitor source code.
+    Licensed under GPLv3.
+
+    "config.c contains realization of function for 
+    create and use configuration file.
+
+    Author: Gapeev Maksim
+    Email: gm16493@gmail.com
+ */
+
 #include "config.h"
 #include "common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <libconfig.h>
+
+static char path_to_config[256] = ""; // path to configuration file 
 
 int create_default_config()
 {
@@ -78,7 +92,8 @@ int create_default_config()
         "count_of_day = 3 \n"
     };
 
-    FILE *cfg_default_file = fopen("e502monitor.cfg", "w");
+
+    FILE *cfg_default_file = fopen(path_to_config, "w");
 
     if(!cfg_default_file){ return E502M_ERR; }
 
@@ -94,20 +109,52 @@ int create_default_config()
 
 int init_config(e502monitor_config **config)
 {
+    // get user name
+    char* user_name = getenv("USER");
+    strcat(path_to_config, "/home/");
+    strcat(path_to_config, user_name);
+    strcat(path_to_config, "/.config/e502monitor/e502monitor.cfg");
+
+    char config_dir_path[256] = "/home/";
+    strcat(config_dir_path, user_name);
+    strcat(config_dir_path, "/.config/e502monitor");
+
+    // if configuration directory are not exist create it
+    struct stat st = {0};
+
+// #ifdef DBG
+    printf("Path to configuration file:\t%s\n", path_to_config);
+    printf("Configuration directory:\t%s\n", config_dir_path);
+// #endif
+
+    if( stat(config_dir_path, &st) == -1 )
+    {
+               if( mkdir(config_dir_path, 0700) != 0) 
+        {
+            printf("Не могу создать директорию для конфигурационного файла.\n"
+                    "Ошибка в пути? Нет прав на запись?\n");
+
+            logg("Не могу создать директорию для конфигурационного файла.\n"
+                    "Ошибка в пути? Нет прав на запись?\n");
+
+            return E502M_ERR;
+        } 
+    }
+
     e502monitor_config* e502m_cfg = *config;
 
     config_t cfg; 
 
     config_init(&cfg);
 
-    if(!config_read_file(&cfg, "e502monitor.cfg"))
+    if(!config_read_file(&cfg, path_to_config))
     {
         printf("Не найден конфигурацйионный файл e502monitor.cfg\n");
         printf("Создаю конфигурационный файл по-умолчанию\n");
         
         if( create_default_config() == E502M_ERR_OK )
         {
-            if( !config_read_file(&cfg, "e502monitor.cfg") )
+            if( !config_read_file(&cfg, path_to_config) )
             {
                 printf("Ошибка при открытиии конфигурационного файла по-умолчанию\n");
                 return E502M_ERR;
