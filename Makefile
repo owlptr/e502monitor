@@ -1,6 +1,6 @@
 CC := gcc
 
-TARGET := e502monitor
+TARGET := deb-bundle/usr/bin/e502monitor
 
 CFLAGS := -le502api -lx502api -lconfig -pthread
 
@@ -23,4 +23,4 @@ e502monitor: $(SOURCE) $(HEADERS)
 	$(CC) $(SOURCE) $(CFLAGS) -o $(TARGET) -DDBG
 
 clean:
-	rm e502monitor
+	rm deb-bundle/usr/bin/e502monitor

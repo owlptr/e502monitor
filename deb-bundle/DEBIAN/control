@@ -1,0 +1,11 @@
+Package: e502monitor
+Section: electronics
+Version: 0.8
+Priority: optional
+Architecture: amd64
+Depends: libe502api1, libc6, libconfig9
+Maintainer: Gapeev Maksim <gm16493@gmail.com>
+Description: e502monitor - application for receiving and saving data from L-Card E502
+ e502monitor - application for real-time receiving and saiving data from L-Card E502.
+ It use some of library which maintaining by LCard.
+ e502monitor is distributed under GPLv3 license. 
