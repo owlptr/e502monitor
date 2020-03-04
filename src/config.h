@@ -14,20 +14,24 @@
 
 typedef struct{
 
-    int     channel_count;      // Count of use logical chnnels
-    double  adc_freq;           // Frequency descritization
-    int     read_block_size;    // The size of the data block 
-                                //  that is read at once from the ADC
-    int     read_timeout;       // Timeout for receiving data in ms.
-    int*    channel_numbers;    // Numbers of using logical channels
-    int*    channel_modes;      // Operation modes for channels
-    int*    channel_ranges;     // Channel measurement ranges
-    char    bin_dir[101];       // Directory of output bin files
-    char    module_name[51];    // Name of using module
-    char    place[101];         // Name of the recording place
-    char**  channel_names;      // Names of using channels 
-    int     stored_days_count;  // Count of days that be stored
-    int     file_size;          // File size in seconds
+    int       channel_count;            // Count of use logical chnnels
+    double    adc_freq;                 // Frequency descritization
+    int       read_block_size;          // The size of the data block 
+                                        //  that is read at once from the ADC
+
+    int       read_timeout;             // Timeout for receiving data in ms.
+    int*      channel_numbers;          // Numbers of using logical channels
+    int*      channel_modes;            // Operation modes for channels
+    int*      channel_ranges;           // Channel measurement ranges
+    char      bin_dir[101];             // Directory of output bin files
+    char      module_name[51];          // Name of using module
+    char      place[101];               // Name of the recording place
+    char**    channel_names;            // Names of using channels 
+    int       stored_days_count;        // Count of days that be stored
+    int       file_size;                // File size in seconds
+    int**     channel_distribution;     // Distribution of channel by files
+    int       files_count;              // Count of files for writing
+    int*      channel_counts_in_files;  // Count of channels in each flac file
     
 } e502monitor_config;
 

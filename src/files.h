@@ -19,6 +19,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+// #include <sndfile.h>
+
 /*
     Create files for writing data on disk.
 
@@ -55,6 +57,13 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg);
 
+
+// void create_flac_files(SNDFILE **files,
+//                        char* dir_name,
+//                        char** file_names,
+//                        int files_count,
+//                        header* hdr,
+//                        e502monitor_config* cfg);
 
 /*
     Remove one stored day.
