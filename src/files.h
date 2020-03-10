@@ -19,7 +19,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-// #include <sndfile.h>
+#include <sndfile.h>
 
 /*
     Create files for writing data on disk.
@@ -57,13 +57,37 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg);
 
+/*
+    Create multichannel flac-files instead of binary files
 
-// void create_flac_files(SNDFILE **files,
-//                        char* dir_name,
-//                        char** file_names,
-//                        int files_count,
-//                        header* hdr,
-//                        e502monitor_config* cfg);
+    files             - array of file descriptors.
+    files_count       - count of file descriptors.
+    start_time        - time of start writing data.
+    path              - directory for writing data.
+    channel_numbers   - numbers of using channels 
+    stored_file_names - array for stored file names 
+
+    Retutn error index. 
+ */
+int create_flac_files(SNDFILE **files,
+                      e502monitor_config* config,
+                      struct timeval* start_time,
+                      char* path,
+                      char** stored_file_names);
+
+void close_flac_files(SNDFILE **files,
+                      char* dir_name,
+                      char** file_names,
+                      int files_count,
+                      header* hdr);
+
+/*
+
+    Return error index.
+*/
+int prepare_output_directory(char* path,
+                             struct tm* start_time,
+                             char* dir_name);
 
 /*
     Remove one stored day.

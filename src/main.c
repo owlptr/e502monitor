@@ -29,7 +29,8 @@ static struct timeval g_time_start; // time of start writing file
 static struct timeval g_time_end;   // time of finish writing file
 static struct timeval g_prev_time_start; // time start of previuos file
 
-static FILE**   g_files = NULL; // files for stored data
+// static FILE**   g_files = NULL; // files for stored data
+static SNDFILE**   g_files = NULL; // files for stored data
 static header   g_header; // header with information 
 static e502monitor_config*  g_config = NULL; // structure for configure
 static pdouble_queue* g_data_queue = NULL; // queue for stored data
@@ -218,7 +219,8 @@ int main(int argc, char** argv)
 
     gettimeofday(&g_time_start, NULL);
     
-    clear_dir();
+    // TODO: fix this function
+    // clear_dir();
 
     g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
 
@@ -486,11 +488,16 @@ void *write_data(void *arg)
                     rest_buffer_sizes[ch_cntr] ++;
 
                 } else {
+                    
 
+                    /*
                     fwrite(&data[data_cntr],
                             sizeof(double),
                             1,
                             g_files[ch_cntr]);
+                    */
+
+
 
                     file_sizes[ch_cntr] ++;
 
@@ -526,7 +533,8 @@ void *write_data(void *arg)
                             &g_header,
                             g_config);
 
-                clear_dir();
+                // TODO: fix this function
+                // clear_dir();
 
                 create_files(g_files,
                              g_config->channel_count,
@@ -639,6 +647,7 @@ void clear_dir()
 
     logg("Проверяю необходимость очистки директории");
 
+    // TODO: this works wrong!
     int remove_days_count = is_need_clear_dir(g_config->bin_dir,
                                               current_day,
                                               g_config->stored_days_count);

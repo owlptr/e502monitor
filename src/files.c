@@ -17,6 +17,44 @@
 #include <dirent.h>
 #include <string.h>
 
+int prepare_output_directory(char* path,
+                             struct tm* start_time,
+                             char* dir_name)
+{
+    sprintf(dir_name,
+            "%s/%d_%02d_%02d",
+            path,
+            1900 + start_time->tm_year,
+            start_time->tm_mon + 1,
+            start_time->tm_mday);
+
+    struct stat st = {0};
+
+    if( stat(dir_name, &st) == -1 ) // if directory not exist
+    {
+
+        char log_msg[500] = "";
+
+        sprintf(log_msg, "Директория: %s недоступна. Создаю", dir_name);
+
+        logg(log_msg);
+
+        if( mkdir(dir_name, 0700) != 0) 
+        {
+            printf("Не могу создать директорию для выходных фалов.\n"
+                    "Ошибка в пути? Нет прав на запись?\n");
+
+            logg("Не могу создать директорию для выходных фалов. "
+                 "Ошибка в пути? Нет прав на запись?");
+
+            return E502M_ERR;
+        }
+    }
+
+
+    return E502M_ERR_OK;
+}
+
 int create_files(FILE **files,
                  int files_count,
                  struct timeval* start_time,
@@ -29,7 +67,8 @@ int create_files(FILE **files,
     ts = gmtime(&start_time->tv_sec);
 
     char dir_name[100] = "";
-
+    
+    /* 
     sprintf(dir_name,
             "%s/%d_%02d_%02d",
             path,
@@ -58,6 +97,12 @@ int create_files(FILE **files,
 
             return E502M_ERR;
         }
+    }
+    */
+
+    if( prepare_output_directory(path, ts, dir_name) != E502M_ERR_OK )
+    {
+        return E502M_ERR;
     }
 
     char log_msg[500]  = "";
@@ -92,6 +137,65 @@ int create_files(FILE **files,
         // when will be know time of finish recording file
         fseek(files[i], sizeof(header), SEEK_SET);
     }
+
+    return E502M_ERR_OK;
+}
+
+int create_flac_files(SNDFILE **files,
+                      e502monitor_config* config,
+                      struct timeval* start_time,
+                      char* path,
+                      char** stored_file_names)
+{
+    struct tm *ts; // time of start recording
+
+    ts = gmtime(&start_time->tv_sec);
+
+    char dir_name[100] = "";
+
+    if( prepare_output_directory(path, ts, dir_name) != E502M_ERR_OK )
+    {
+        return E502M_ERR;
+    }
+
+    char log_msg[500]  = "";
+
+    sprintf(log_msg, "Создаю файлы в директории: %s", dir_name); 
+    logg(log_msg);
+
+    for( int i = 0; i < config->files_count; i++ )
+    {
+
+        char file_name[500] = "";
+        
+        sprintf(file_name, 
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.flac",
+                dir_name,
+                1900 + ts->tm_year,
+                ts->tm_mon + 1,
+                ts->tm_mday,
+                ts->tm_hour,
+                ts->tm_min,
+                ts->tm_sec,
+                (int)start_time->tv_usec,
+                i);
+
+
+        SF_INFO sfinfo;
+
+        sfinfo.channels = config->channel_counts_in_files[i];
+        sfinfo.format = SF_FORMAT_FLAC;
+        sfinfo.samplerate = config->adc_freq;
+
+        if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
+        {
+            printf("ERROR: Не могу создат flac-файл!\n");
+
+            return E502M_ERR;
+        }
+        
+    }
+
 
     return E502M_ERR_OK;
 }
@@ -163,6 +267,58 @@ void close_files(FILE **files,
 
     logg("Файлы записаны");
 
+}
+
+void close_flac_files(SNDFILE **files,
+                      char* dir_name,
+                      char** file_names,
+                      int files_count,
+                      header* hdr)
+{
+    logg("Заканчиваю запись файлов");
+
+    char new_file_name[500] = "";
+    char path_to_file[500] = "";
+
+    sprintf(path_to_file,
+            "%s/%d_%02d_%02d",
+            dir_name,
+            hdr->year,
+            hdr->month,
+            hdr->day);
+
+    for(int i = 0; i < files_count; ++i)
+    { 
+        fwrite(hdr, sizeof(header), 1, files[i]);
+
+        fclose(files[i]);
+
+        // set NULL as marker
+        files[i] = NULL;
+
+        // rename files (for correcting start time)
+
+        sprintf(new_file_name, 
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.flac",
+                path_to_file,
+                hdr->year,
+                hdr->month,
+                hdr->day,
+                hdr->start_hour,
+                hdr->start_minut,
+                hdr->start_second,
+                (int)hdr->start_usecond,
+                i);
+        
+        char log_msg[500] = "";
+
+        sprintf(log_msg, 
+                "Переименовываю файл <%s> на <%s>",
+                file_names[i], new_file_name);
+        logg(log_msg);
+
+        rename(file_names[i], new_file_name);
+    }
 }
 
 int remove_day(char *path)

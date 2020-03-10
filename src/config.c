@@ -486,10 +486,12 @@ e502monitor_config* create_config()
 
     if(config == NULL){ return NULL; } 
 
-    config->channel_numbers = NULL;
-    config->channel_modes   = NULL;
-    config->channel_ranges  = NULL;
-    config->channel_names   = NULL;
+    config->channel_numbers         = NULL;
+    config->channel_modes           = NULL;
+    config->channel_ranges          = NULL;
+    config->channel_names           = NULL;
+    config->channel_distribution    = NULL;
+    config->channel_counts_in_files = NULL;
 
     return config;
 }
@@ -499,7 +501,26 @@ void destroy_config(e502monitor_config **config)
     if( (*config)->channel_numbers != NULL ){free( (*config)->channel_numbers);}
     if( (*config)->channel_modes   != NULL ){free( (*config)->channel_modes);}
     if( (*config)->channel_ranges  != NULL ){free( (*config)->channel_ranges);}
-    if( (*config)->channel_names   != NULL ){free( (*config)->channel_names);}
+    
+    if( (*config)->channel_names   != NULL )
+    {
+        for( int i = 0; i < (*config)->channel_count; i++ )
+        {
+            free((*config)->channel_names[i]);
+        }
+
+        free( (*config)->channel_names);
+    }
+
+    if( (*config)->channel_distribution != NULL )
+    {
+        for( int i = 0; i < (*config)->files_count; i++)
+        {
+            free((*config)->channel_distribution[i]);
+        }
+
+        free((*config)->channel_distribution);
+    }
 
     free( (*config) ) ;
 }
