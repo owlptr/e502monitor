@@ -184,7 +184,7 @@ int create_flac_files(SNDFILE **files,
         SF_INFO sfinfo;
 
         sfinfo.channels = config->channel_counts_in_files[i];
-        sfinfo.format = SF_FORMAT_FLAC;
+        sfinfo.format = SF_FORMAT_FLAC | SF_FORMAT_PCM_16;
         sfinfo.samplerate = config->adc_freq;
 
         if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
@@ -289,9 +289,7 @@ void close_flac_files(SNDFILE **files,
 
     for(int i = 0; i < files_count; ++i)
     { 
-        fwrite(hdr, sizeof(header), 1, files[i]);
-
-        fclose(files[i]);
+        sf_close(files[i]);
 
         // set NULL as marker
         files[i] = NULL;

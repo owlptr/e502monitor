@@ -77,6 +77,11 @@ void clear_dir();
 
 void print_program_info();
 
+/*
+    Find file by channel index
+*/
+int find_flac_file_index(int channel_index);
+
 // /*
 //     Reconects to device.
 
@@ -467,7 +472,7 @@ void *write_data(void *arg)
 
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
-    
+
     while(!g_stop || !empty(g_data_queue))
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
@@ -496,8 +501,9 @@ void *write_data(void *arg)
                             1,
                             g_files[ch_cntr]);
                     */
-
-
+                    sf_write_double(g_files[find_flac_file_index(ch_cntr)],
+                                    &data[data_cntr],
+                                    1);
 
                     file_sizes[ch_cntr] ++;
 
@@ -647,7 +653,7 @@ void clear_dir()
 
     logg("Проверяю необходимость очистки директории");
 
-    // TODO: this works wrong!
+    // TODO: Need fix: this works wrong!
     int remove_days_count = is_need_clear_dir(g_config->bin_dir,
                                               current_day,
                                               g_config->stored_days_count);
@@ -732,4 +738,20 @@ void print_program_info()
     printf("Автор: Гапеев Максим\n");
     printf("Email: gm16493@gmail.com\n\n");
 
+}
+
+int find_flac_file_index(int channel_index)
+{
+    for(int i = 0; i < g_config->files_count; i++)
+    {
+        for(int j = 0; j < g_config->channel_counts_in_files[i]; j++)
+        {
+            if( g_config->channel_distribution[i][j] == channel_index )
+            {
+                return i;
+            }
+        }
+    }
+
+    return E502M_ERR;
 }
