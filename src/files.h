@@ -70,16 +70,20 @@ void close_files(FILE **files,
     Retutn error index. 
  */
 int create_flac_files(SNDFILE **files,
-                      e502monitor_config* config,
+                      int files_count,
                       struct timeval* start_time,
                       char* path,
-                      char** stored_file_names);
+                      int* channel_numbers,
+                      char** stored_file_names,
+                      int* channel_counts_in_files,
+                      double adc_freq);
 
 void close_flac_files(SNDFILE **files,
                       char* dir_name,
                       char** file_names,
                       int files_count,
-                      header* hdr);
+                      header *hdr,
+                      e502monitor_config *cfg);
 
 /*
 

@@ -256,18 +256,23 @@ int main(int argc, char** argv)
     int read_timeout = g_config->read_timeout; 
     int real_file_sizes = 0;
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, write_data, NULL);
-    pthread_detach(thread);
-
     gettimeofday(&g_time_start, NULL);
     
-    err = create_files(g_files,
-                       g_config->channel_count,
-                       &g_time_start,
-                       g_config->bin_dir,
-                       g_config->channel_numbers,
-                       g_old_file_names);
+    // err = create_files(g_files,
+    //                    g_config->channel_count,
+    //                    &g_time_start,
+    //                    g_config->bin_dir,
+    //                    g_config->channel_numbers,
+    //                    g_old_file_names);
+
+    err = create_flac_files(g_files,
+                            g_config->files_count,
+                            &g_time_start,
+                            g_config->bin_dir,
+                            g_config->channel_numbers,
+                            g_old_file_names,
+                            g_config->channel_counts_in_files,
+                            g_config->adc_freq);
 
     if( err != E502M_ERR_OK )
     {
@@ -286,6 +291,10 @@ int main(int argc, char** argv)
     gettimeofday(&g_prev_time_start, NULL);
 
     int is_need_restart = 0; // 0 - not, 1 - yes
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, write_data, NULL);
+    pthread_detach(thread);
 
     while(!g_stop)
     {
@@ -473,6 +482,7 @@ void *write_data(void *arg)
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
 
+    int flac_files_index = 0;
     while(!g_stop || !empty(g_data_queue))
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
@@ -495,13 +505,15 @@ void *write_data(void *arg)
                 } else {
                     
 
-                    /*
-                    fwrite(&data[data_cntr],
-                            sizeof(double),
-                            1,
-                            g_files[ch_cntr]);
-                    */
-                    sf_write_double(g_files[find_flac_file_index(ch_cntr)],
+                    
+                    // fwrite(&data[data_cntr],
+                    //         sizeof(double),
+                    //         1,
+                    //         g_files[ch_cntr]);
+                    
+                    flac_files_index = find_flac_file_index(ch_cntr);
+
+                    sf_write_double(g_files[flac_files_index],
                                     &data[data_cntr],
                                     1);
 
@@ -532,22 +544,38 @@ void *write_data(void *arg)
 
                 current_file_size = 0;
 
-                close_files(g_files,
-                            g_config->bin_dir,
-                            g_old_file_names,
-                            g_config->channel_count,
-                            &g_header,
-                            g_config);
+                // close_files(g_files,
+                //             g_config->bin_dir,
+                //             g_old_file_names,
+                //             g_config->channel_count,
+                //             &g_header,
+                //             g_config);
+
+                close_flac_files(g_files,
+                                g_config->bin_dir,
+                                g_old_file_names,
+                                g_config->channel_count,
+                                &g_header,
+                                g_config);
 
                 // TODO: fix this function
                 // clear_dir();
 
-                create_files(g_files,
-                             g_config->channel_count,
-                             &g_time_start,
-                             g_config->bin_dir,
-                             g_config->channel_numbers,
-                             g_old_file_names);
+                // create_files(g_files,
+                //              g_config->channel_count,
+                //              &g_time_start,
+                //              g_config->bin_dir,
+                //              g_config->channel_numbers,
+                //              g_old_file_names);
+
+                create_flac_files(g_files,
+                                  g_config->files_count,
+                                  &g_time_start,
+                                  g_config->bin_dir,
+                                  g_config->channel_numbers,
+                                  g_old_file_names,
+                                  g_config->channel_counts_in_files,
+                                  g_config->adc_freq);
 
                 // process the rests
 
@@ -623,12 +651,19 @@ void *write_data(void *arg)
     // ------------------------------------------------------
     
     // close files
-    close_files(g_files,
-                g_config->bin_dir,
-                g_old_file_names,
-                g_config->channel_count,
-                &g_header,
-                g_config);
+    // close_files(g_files,
+    //             g_config->bin_dir,
+    //             g_old_file_names,
+    //             g_config->channel_count,
+    //             &g_header,
+    //             g_config);
+
+    close_flac_files(g_files,
+                    g_config->bin_dir,
+                    g_old_file_names,
+                    g_config->channel_count,
+                    &g_header,
+                    g_config);
 }
 
 void get_current_day_as_string(char **current_day)

@@ -1,8 +1,9 @@
+
 CC := gcc
 
 TARGET := deb-bundle/usr/bin/e502monitor
 
-CFLAGS := -le502api -lx502api -lconfig -pthread
+CFLAGS := -le502api -lx502api -lconfig -pthread -lsndfile
 
 SOURCE := src/config.c \
 		  src/device.c \

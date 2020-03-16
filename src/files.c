@@ -142,10 +142,13 @@ int create_files(FILE **files,
 }
 
 int create_flac_files(SNDFILE **files,
-                      e502monitor_config* config,
+                      int files_count,
                       struct timeval* start_time,
                       char* path,
-                      char** stored_file_names)
+                      int* channel_numbers,
+                      char** stored_file_names,
+                      int* channel_counts_in_files,
+                      double adc_freq)
 {
     struct tm *ts; // time of start recording
 
@@ -163,7 +166,7 @@ int create_flac_files(SNDFILE **files,
     sprintf(log_msg, "Создаю файлы в директории: %s", dir_name); 
     logg(log_msg);
 
-    for( int i = 0; i < config->files_count; i++ )
+    for( int i = 0; i < files_count; i++ )
     {
 
         char file_name[500] = "";
@@ -183,9 +186,9 @@ int create_flac_files(SNDFILE **files,
 
         SF_INFO sfinfo;
 
-        sfinfo.channels = config->channel_counts_in_files[i];
+        sfinfo.channels = channel_counts_in_files[i];
         sfinfo.format = SF_FORMAT_FLAC | SF_FORMAT_PCM_16;
-        sfinfo.samplerate = config->adc_freq;
+        sfinfo.samplerate = adc_freq;
 
         if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
         {
@@ -273,7 +276,8 @@ void close_flac_files(SNDFILE **files,
                       char* dir_name,
                       char** file_names,
                       int files_count,
-                      header* hdr)
+                      header *hdr,
+                      e502monitor_config *cfg)
 {
     logg("Заканчиваю запись файлов");
 
