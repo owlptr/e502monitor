@@ -150,6 +150,7 @@ int create_flac_files(SNDFILE **files,
                       int* channel_counts_in_files,
                       double adc_freq)
 {
+    printf("Начинаю создавать flac-файлы.\n");
     struct tm *ts; // time of start recording
 
     ts = gmtime(&start_time->tv_sec);
@@ -183,6 +184,7 @@ int create_flac_files(SNDFILE **files,
                 (int)start_time->tv_usec,
                 i);
 
+        strcpy(stored_file_names[i], file_name);
 
         SF_INFO sfinfo;
 
@@ -196,9 +198,9 @@ int create_flac_files(SNDFILE **files,
 
             return E502M_ERR;
         }
-        
     }
 
+    printf("Файлы успешно созданы\n");
 
     return E502M_ERR_OK;
 }
@@ -210,9 +212,6 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg)
 {
-
-    logg("Заканчиваю запись файлов");
-
     char new_file_name[500] = "";
     char path_to_file[500] = "";
 
@@ -265,6 +264,7 @@ void close_files(FILE **files,
         logg(log_msg);
 
         rename(file_names[i], new_file_name);
+
     }
 
 
@@ -292,7 +292,7 @@ void close_flac_files(SNDFILE **files,
             hdr->day);
 
     for(int i = 0; i < files_count; ++i)
-    { 
+    {   
         sf_close(files[i]);
 
         // set NULL as marker

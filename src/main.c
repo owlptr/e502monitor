@@ -15,6 +15,7 @@
 #include "header.h"
 #include "device.h"
 #include "logging.h"
+#include "frame.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -299,33 +300,32 @@ int main(int argc, char** argv)
     while(!g_stop)
     {
         data = (double*)malloc(sizeof(double) * read_block_size);
-
         
         // if need create new files store moment of
         // reading new block data
         // current_file_size += g_config->read_block_size / g_config->channel_count;
-        current_file_sizes += current_file_block_add;
+        // current_file_sizes += current_file_block_add;
         // current_file_size += read_block_size;
 
-        if( current_file_sizes >= total_file_sizes )
+        // if( current_file_sizes >= total_file_sizes )
+        if(real_file_sizes + read_block_size >= total_file_sizes)
         {
             read_block_size = total_file_sizes - real_file_sizes;
-            
-// #ifdef DBG
-//             logg("Считано сэмплов: %d", real_file_sizes);
-//             logg("До эталонного количества сэмплов необходимо прочесть сэмплов: %d",
-//                  read_block_size);
-// #endif
+
+#ifdef DBG
+            printf("\nСчитано сэмплов: %d\n", real_file_sizes);
+            printf("До эталонного количества сэмплов необходимо прочесть сэмплов: %d\n",
+                 read_block_size);
+#endif
             real_file_sizes = 0;
-            current_file_sizes = 0;
+            // current_file_sizes = 0;
             
             // gettimeofday(&g_time_start, NULL);
-
             rcv_size = X502_Recv(device_hnd,
                                  rcv_buf,
                                  read_block_size,
                                  read_timeout);
-            
+
             if(rcv_size < 0) // some errors
             {
                 logg("Ошибка получения данных");
@@ -334,6 +334,7 @@ int main(int argc, char** argv)
                 is_need_restart = 1;
                 break; // exit from receiving data loop 
             }
+
 
             gettimeofday(&g_time_start, NULL);
             gettimeofday(&g_time_end, NULL);
@@ -363,11 +364,12 @@ int main(int argc, char** argv)
             g_prev_time_start = g_time_start;
 
             // last_buffer_index = NOT_LAST_BUFFER;
-            read_block_size = g_config->read_block_size;
+            // read_block_size = g_config->read_block_size;
 #ifdef DBG
-            printf("Последний буфер прочитан %d", rcv_size);
+            printf("Последний буфер прочитан %d\n", rcv_size);
             logg("Последний буфер прочитан");
 #endif
+
 
             X502_GetNextExpectedLchNum(device_hnd, &first_lch);
 
@@ -375,9 +377,12 @@ int main(int argc, char** argv)
 
             err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                        data, &adc_size, NULL, NULL);
-
+            
             push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, LAST_BUFFER);
+
+            read_block_size = g_config->read_block_size;
         } else {
+
 
             rcv_size = X502_Recv(device_hnd,
                                  rcv_buf,
@@ -385,6 +390,7 @@ int main(int argc, char** argv)
                                  read_timeout);
             
             // printf("RCV_Size = %d\n", rcv_size);
+
 
             if(rcv_size < 0) // some errors
             {
@@ -400,10 +406,17 @@ int main(int argc, char** argv)
 
             err = X502_ProcessData(device_hnd, rcv_buf, rcv_size, X502_PROC_FLAGS_VOLT,
                                    data, &adc_size, NULL, NULL);
+            
+            real_file_sizes += rcv_size;
+
+            if(real_file_sizes == total_file_sizes)
+            {
+                real_file_sizes = 0;
+                push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, LAST_BUFFER);
+            }
+
             push_to_pdqueue(g_data_queue, &data, rcv_size, first_lch, NOT_LAST_BUFFER);
 
-
-            real_file_sizes += rcv_size;
         }
     }
 
@@ -475,22 +488,27 @@ void *write_data(void *arg)
 
     int buffer_state;
 
-    int current_file_size = 0;
-
     double *data = NULL;
 
     int sleep_time = g_config->read_timeout / 2; 
     int last_buffer_index = NOT_LAST_BUFFER;
 
     int flac_files_index = 0;
+
+    data_frame** frames = (data_frame**)malloc(sizeof(data_frame*) * g_config->files_count);
+
+    for(int i = 0; i < g_config->files_count; i++)
+    {
+        frames[i] = create_frame(g_config->channel_counts_in_files[i], 
+                                 g_config->channel_distribution[i]);
+    }
+
     while(!g_stop || !empty(g_data_queue))
     {
         pop_from_pdqueue(g_data_queue, &data, &size, &ch_cntr, &last_buffer_index);
 
         if(data != NULL)
         {   
-
-            current_file_size += size/g_config->channel_count;  
         
             for(data_cntr = 0; data_cntr < size; data_cntr++, ch_cntr++)
             {                               
@@ -512,16 +530,16 @@ void *write_data(void *arg)
                     //         g_files[ch_cntr]);
                     
                     flac_files_index = find_flac_file_index(ch_cntr);
-
-                    sf_write_double(g_files[flac_files_index],
-                                    &data[data_cntr],
-                                    1);
-
-                    file_sizes[ch_cntr] ++;
-
-                    if( file_sizes[ch_cntr] >= total_file_size )
-                    { 
-                        fill_index_files[ch_cntr] = 1;
+                    
+                    add_data_in_frame(frames[flac_files_index], 
+                                      data[data_cntr],
+                                      ch_cntr);
+                    if(is_frame_full(frames[flac_files_index]) == FRAME_FULL)
+                    {
+                        sf_write_double(g_files[flac_files_index],
+                                        frames[flac_files_index]->data,
+                                        frames[flac_files_index]->size);
+                        clear_frame(frames[flac_files_index]);
                     }
                 }
                 
@@ -531,33 +549,20 @@ void *write_data(void *arg)
             if(last_buffer_index == LAST_BUFFER)
             {
 
-            for(ch_cntr = 0; ch_cntr < g_config->channel_count; ch_cntr++)
-            {
-                char log_msg[100] = "";
-                sprintf(log_msg,
-                        "Количество сэмплов в файле канала %d = %d",    
-                        ch_cntr,
-                        file_sizes[ch_cntr]);
-                logg(log_msg);
-            }
-
-
-                current_file_size = 0;
-
                 // close_files(g_files,
                 //             g_config->bin_dir,
                 //             g_old_file_names,
                 //             g_config->channel_count,
                 //             &g_header,
                 //             g_config);
-
                 close_flac_files(g_files,
                                 g_config->bin_dir,
                                 g_old_file_names,
-                                g_config->channel_count,
+                                g_config->files_count,
                                 &g_header,
                                 g_config);
 
+                printf("Запись файлов завершена\n");
                 // TODO: fix this function
                 // clear_dir();
 
@@ -576,34 +581,7 @@ void *write_data(void *arg)
                                   g_old_file_names,
                                   g_config->channel_counts_in_files,
                                   g_config->adc_freq);
-
-                // process the rests
-
-                logg("Обрабатываю остаток");
-
-                for(ch_cntr = 0; ch_cntr < g_config->channel_count; ch_cntr++)
-                {
-                    if(rest_buffer_sizes[ch_cntr] == 0){ continue; }
-
-                    char log_msg[100] = "";
-                    sprintf(log_msg, 
-                            "Остаток файла для канала %d = %d",
-                            ch_cntr,
-                            rest_buffer_sizes[ch_cntr]);
-                    logg(log_msg);
-
-                    fwrite(rest_buffers[ch_cntr],
-                           sizeof(double),
-                           rest_buffer_sizes[ch_cntr] - 1,
-                           g_files[ch_cntr]);
-                }
-
-                for( ch_cntr = 0; ch_cntr < g_config->channel_count; ch_cntr++) 
-                { 
-                    fill_index_files[ch_cntr]  = 0;
-                    file_sizes[ch_cntr] = rest_buffer_sizes[ch_cntr];
-                    rest_buffer_sizes[ch_cntr] = 0;
-                }
+                printf("Новые файлы созданы\n");
             }
             
             free(data);   
@@ -621,7 +599,18 @@ void *write_data(void *arg)
         free(rest_buffers[i]);
     }
 
+
     free(rest_buffers);
+
+    for( int i = 0; i < g_config->files_count; i++)
+    {
+        destroy_frame(frames[i]);
+    }
+
+
+
+    
+    free(frames);
 
     // initialize time in header
 
@@ -649,7 +638,7 @@ void *write_data(void *arg)
     g_header.finish_second      = ts->tm_sec;
     g_header.finish_usecond     = (int)g_time_start.tv_usec;
     // ------------------------------------------------------
-    
+
     // close files
     // close_files(g_files,
     //             g_config->bin_dir,
@@ -661,9 +650,10 @@ void *write_data(void *arg)
     close_flac_files(g_files,
                     g_config->bin_dir,
                     g_old_file_names,
-                    g_config->channel_count,
+                    g_config->files_count,
                     &g_header,
                     g_config);
+
 }
 
 void get_current_day_as_string(char **current_day)
@@ -725,7 +715,6 @@ void free_global_memory()
         logg("Разрушаю потокобезопасную очередь");
 
         destroy_pdouble_queue(&g_data_queue); 
-
 
         logg("Потокобезопасная очередь разрушена");        
     }
