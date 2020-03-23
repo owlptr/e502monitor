@@ -1,5 +1,5 @@
 #include "frame.h"
-
+#include "stdlib.h"
 
 data_frame* create_frame(int frame_size, int* channels)
 {

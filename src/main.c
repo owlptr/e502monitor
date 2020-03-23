@@ -24,6 +24,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <errno.h>
+#include <string.h>
 
 static int            g_stop = 0; // if equal 1 - stop working
 static struct timeval g_time_start; // time of start writing file
@@ -198,7 +199,9 @@ int main(int argc, char** argv)
 
     print_info_about_device(device_hnd);
 
+    logg("Настраиваю устройство...");
     configure_device(device_hnd, g_config);
+    logg("Устройство настроено...");
 
     // initialize some header fields
     g_header.adc_freq = g_config->adc_freq / g_config->channel_count;
@@ -209,7 +212,7 @@ int main(int argc, char** argv)
     int32_t  rcv_size;
     uint32_t first_lch;
     uint32_t* rcv_buf  = (uint32_t*)malloc(sizeof(uint32_t)*g_config->read_block_size);
-    int total_file_sizes = g_config->file_size * g_config->adc_freq;
+    int total_file_sizes = g_config->file_size * g_config->adc_freq * g_config->channel_count;
     int current_file_sizes = 0;
     double* data;
 
@@ -480,10 +483,10 @@ void *write_data(void *arg)
     int ch_cntr, data_cntr; // counters
     int size;
 
-    int total_file_size = g_config->file_size * (g_config->adc_freq / g_config->channel_count);
+    int total_file_size = g_config->file_size * g_config->adc_freq * g_config->channel_count;
 
 #ifdef DBG
-    printf("Эталонное количество сэмплов в файле: %d\n", total_file_size);
+    printf("Эталонное количество сэмплов во всех файлах: %d\n", total_file_size);
 #endif
 
     int buffer_state;

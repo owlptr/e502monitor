@@ -158,15 +158,38 @@ int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config)
     double frame_freq = config->adc_freq/config->channel_count;
 
     // err = X502_SetAdcFreq(device_hnd, &config->adc_freq, &frame_freq);
-    err = X502_SetAdcFreq(device_hnd, &config->adc_freq, NULL);
-    if(err != X502_ERR_OK){ return E502M_ERR; }
+    // err = X502_SetAdcFreq(device_hnd, &config->adc_freq, NULL);
+    // if(err != X502_ERR_OK){ return E502M_ERR; }
+
+    // calculate configuration value
+    logg("1");
+    int points_per_channel = MAX_FREQUENCY / (int)config->adc_freq;
+
+    printf("Points per channel: %d\n", points_per_channel);
+    printf("Channel counts: %d\n", config->channel_count);
+
+    uint32_t divider = (int)(points_per_channel / config->channel_count);
+    uint32_t delay = (int)(points_per_channel % config->channel_count);
+        
+    printf("Divider: %d\n", divider);
+    printf("Delay: %d\n", delay);
+    
+    // X502_SetAdcFreqDivider(device_hnd, divider);
+    // X502_SetAdcInterframeDelay(device_hnd, delay);
+
+    X502_SetAdcFreqDivider(device_hnd, divider);
+    X502_SetAdcInterframeDelay(device_hnd, delay);
+
+    double f_acq, f_frame;
+    X502_GetAdcFreq(device_hnd, &f_acq, &f_frame);
+    printf("Real freq: %d \t %d\n", f_acq, f_frame);
 
     //what we realy set...
-    printf("\nУстановлены частоты:\n"
-           " Частота сбора АЦП\t\t:%0.0f\n"
-           " Частота на лог. канал\t\t:%0.0f\n",
-        //    config->adc_freq, frame_freq);
-            config->adc_freq, (config->adc_freq / config->channel_count));
+    // printf("\nУстановлены частоты:\n"
+    //        " Частота сбора АЦП\t\t:%0.0f\n"
+    //        " Частота на лог. канал\t\t:%0.0f\n",
+    //     //    config->adc_freq, frame_freq);
+    //         config->adc_freq, (config->adc_freq / config->channel_count));
 
     err = X502_Configure(device_hnd, 0);
     if(err != X502_ERR_OK){ return E502M_ERR; }
