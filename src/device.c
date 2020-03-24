@@ -162,7 +162,6 @@ int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config)
     // if(err != X502_ERR_OK){ return E502M_ERR; }
 
     // calculate configuration value
-    logg("1");
     int points_per_channel = MAX_FREQUENCY / (int)config->adc_freq;
 
     printf("Points per channel: %d\n", points_per_channel);
@@ -174,15 +173,15 @@ int configure_device(t_x502_hnd *device_hnd, e502monitor_config *config)
     printf("Divider: %d\n", divider);
     printf("Delay: %d\n", delay);
     
-    // X502_SetAdcFreqDivider(device_hnd, divider);
-    // X502_SetAdcInterframeDelay(device_hnd, delay);
-
     X502_SetAdcFreqDivider(device_hnd, divider);
     X502_SetAdcInterframeDelay(device_hnd, delay);
 
-    double f_acq, f_frame;
-    X502_GetAdcFreq(device_hnd, &f_acq, &f_frame);
-    printf("Real freq: %d \t %d\n", f_acq, f_frame);
+    // X502_SetAdcFreqDivider(device_hnd, divider);
+    // X502_SetAdcInterframeDelay(device_hnd, delay);
+
+    // double f_acq, f_frame;
+    // X502_GetAdcFreq(device_hnd, &f_acq, &f_frame);
+    // printf("Real freq: %d \t %d\n", f_acq, f_frame);
 
     //what we realy set...
     // printf("\nУстановлены частоты:\n"
