@@ -51,6 +51,7 @@ int create_files(FILE **files,
 void close_files(FILE **files,
                  char* dir_name,
                  char** file_names,
+                 char** new_file_names,
                  int files_count,
                  header *hdr,
                  e502monitor_config *cfg);

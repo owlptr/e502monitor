@@ -31,7 +31,7 @@ int create_files(FILE **files,
     char dir_name[100] = "";
 
     sprintf(dir_name,
-            "%s/%d_%02d_%02d",
+            "%s/in_process/%d_%02d_%02d",
             path,
             1900 + ts->tm_year,
             ts->tm_mon + 1,
@@ -99,6 +99,7 @@ int create_files(FILE **files,
 void close_files(FILE **files,
                  char* dir_name,
                  char** file_names,
+                 char** new_file_names,
                  int files_count,
                  header *hdr,
                  e502monitor_config *cfg)
@@ -110,7 +111,7 @@ void close_files(FILE **files,
     char path_to_file[500] = "";
 
     sprintf(path_to_file,
-            "%s/%d_%02d_%02d",
+            "%s/in_process/%d_%02d_%02d",
             dir_name,
             hdr->year,
             hdr->month,
@@ -139,7 +140,7 @@ void close_files(FILE **files,
         // rename files (for correcting start time)
 
         sprintf(new_file_name, 
-                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
+                "%s/in_process/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
                 path_to_file,
                 hdr->year,
                 hdr->month,
@@ -150,6 +151,8 @@ void close_files(FILE **files,
                 (int)hdr->start_usecond,
                 cfg->channel_numbers[i]);
         
+        strcpy(new_file_names[i], new_file_name);
+
         char log_msg[500] = "";
 
         sprintf(log_msg, 

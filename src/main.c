@@ -23,6 +23,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <errno.h>
+#include <files.h>
 
 static int            g_stop = 0; // if equal 1 - stop working
 static struct timeval g_time_start; // time of start writing file
@@ -36,6 +37,8 @@ static pdouble_queue* g_data_queue = NULL; // queue for stored data
 
 static char **g_old_file_names = NULL; // array of old file names
 
+static char **g_new_file_names = NULL; // array of new file names 
+                                            // (use in create_flac_from_bin() function)
 /*
     Creates stop event heandler for
     correct completion of data collection 
@@ -75,6 +78,12 @@ void clear_dir();
 */
 
 void print_program_info();
+
+/*
+    Create flac - files from temp binary files
+*/
+
+void* create_flac_from_bin(void* arg);
 
 // /*
 //     Reconects to device.
@@ -206,12 +215,17 @@ int main(int argc, char** argv)
     int current_file_sizes = 0;
     double* data;
 
-    // allocate memory for old files array
+    // allocate memory for old file names array
+    // and new file names array
+
     g_old_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
-    
+    g_new_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
+
     for(int i = 0; i < g_config->channel_count; i++)
     {
         g_old_file_names[i] = (char*)malloc(sizeof(char) * 101);
+        g_new_file_names[i] = (char*)malloc(sizeof(char) * 101);
+
     }
 
     logg("Создаю файлы");
@@ -291,7 +305,7 @@ int main(int argc, char** argv)
         // current_file_sizes += current_file_block_add;
         // current_file_size += read_block_size;
 
-        if( real_file_sizes + current_file_block_add>= total_file_sizes )
+        if( real_file_sizes + read_block_size >= total_file_sizes )
         {
             read_block_size = total_file_sizes - real_file_sizes;
             
@@ -522,11 +536,12 @@ void *write_data(void *arg)
                 close_files(g_files,
                             g_config->bin_dir,
                             g_old_file_names,
+                            g_new_file_names,
                             g_config->channel_count,
                             &g_header,
                             g_config);
 
-                clear_dir();
+                // clear_dir();
 
                 create_files(g_files,
                              g_config->channel_count,
@@ -612,6 +627,7 @@ void *write_data(void *arg)
     close_files(g_files,
                 g_config->bin_dir,
                 g_old_file_names,
+                g_new_file_names,
                 g_config->channel_count,
                 &g_header,
                 g_config);
@@ -693,9 +709,23 @@ void free_global_memory()
         free(g_old_file_names);
 
         logg("Память от массива старых имен файлов освобождена.\n");
-
-
     } 
+
+        if( g_new_file_names != NULL )
+    {
+
+        logg("Особождаю память от массива новых имен файлов");
+        
+        for(int i = 0; i < g_config->channel_count; i++)
+        {
+            free(g_new_file_names[i]);
+        }
+
+        free(g_new_file_names);
+
+        logg("Память от массива новых имен файлов освобождена.\n");
+    } 
+
 
     if ( g_config != NULL )
     {
@@ -722,5 +752,18 @@ void print_program_info()
     printf("Программа для сбора данных при помощи LCard E-502\n\n");
     printf("Автор: Гапеев Максим\n");
     printf("Email: gm16493@gmail.com\n\n");
+}
+
+void* create_flac_from_bin(void* argv)
+{
+    FILE** bin_file = (FILE*)malloc(sizeof(FILE*) * g_config->channel_count);
+
+    for(int i = 0; i < g_config->channel_count; i++)
+    {
+        bin_file[i] = fopen(g_new_file_names[i], "rb");
+        fseek(bin_file[i], sizeof(header), SEEK_SET);
+    }
+
+    
 
 }

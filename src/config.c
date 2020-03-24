@@ -89,7 +89,10 @@ int create_default_config()
         "# Количество дней, которые будут сохраняться.\n",
         "# Например, если  count_of_day = 3, то будут сохраняться\n",
         "# два последних дня + текущий\n",
-        "count_of_day = 3 \n"
+        "count_of_day = 3 \n",
+        "\n",
+        "# Распределение каналов по flac-файлам.\n"
+        "channel_distribution = ([0])\n"
     };
 
 
@@ -380,8 +383,33 @@ int init_config(e502monitor_config **config)
         strcpy(e502m_cfg->channel_names[i], config_setting_get_string_elem(channel_names, i));
     }
 
-    config_destroy(&cfg);    
+        size = config_setting_length(ch_dist);
 
+    e502m_cfg->channel_distribution = (int**)malloc(sizeof(int*)*size);
+    e502m_cfg->channel_counts_in_files = (int*)malloc(sizeof(int)*size);
+    e502m_cfg->files_count = size;
+
+    for(int i = 0; i < size; i++)
+    {
+        config_setting_t* file_dist = config_setting_get_elem(ch_dist, i);
+
+        int inner_size = config_setting_length(file_dist);
+
+        e502m_cfg->channel_distribution[i] = (int*)malloc(sizeof(int)*inner_size);
+
+        e502m_cfg->channel_counts_in_files[i] = inner_size;
+
+        for(int j = 0; j < inner_size; j++)
+        {
+            // printf("%d\n", config_setting_get_int_elem(flac_file_cfg, j));
+            e502m_cfg->channel_distribution[i][j] = config_setting_get_int_elem(file_dist, j);
+            // printf("%d\n", config_setting_get_int_elem(flac_file_cfg, j));
+        }
+
+    }
+
+    config_destroy(&cfg);    
+    
     return E502M_ERR_OK;
 }
 
