@@ -460,7 +460,7 @@ void create_stop_event_handler()
     sigaction(SIGABRT, &sa, NULL);
 }
 
-void *write_data(void *arg)
+void* write_data(void *arg)
 {
     int* file_sizes = (int*)malloc(sizeof(int) * g_config->channel_count);
     int* fill_index_files = (int*)malloc(sizeof(int) * g_config->channel_count);
@@ -483,7 +483,7 @@ void *write_data(void *arg)
     int ch_cntr, data_cntr; // counters
     int size;
 
-    int total_file_size = g_config->file_size * g_config->adc_freq * g_config->channel_count;
+    int total_file_size = g_config->file_size * g_config->adc_freq; //* g_config->channel_count;
 
 #ifdef DBG
     printf("Эталонное количество сэмплов во всех файлах: %d\n", total_file_size);
@@ -525,18 +525,16 @@ void *write_data(void *arg)
 
                 } else {
                     
-
-                    
                     // fwrite(&data[data_cntr],
                     //         sizeof(double),
                     //         1,
                     //         g_files[ch_cntr]);
                     
                     flac_files_index = find_flac_file_index(ch_cntr);
-                    
+
                     add_data_in_frame(frames[flac_files_index], 
                                       data[data_cntr],
-                                      ch_cntr);
+                                      g_config->channel_numbers[ch_cntr]);
                     if(is_frame_full(frames[flac_files_index]) == FRAME_FULL)
                     {
                         sf_write_double(g_files[flac_files_index],
@@ -769,6 +767,8 @@ void print_program_info()
 
 int find_flac_file_index(int channel_index)
 {
+    channel_index = g_config->channel_numbers[channel_index];
+
     for(int i = 0; i < g_config->files_count; i++)
     {
         for(int j = 0; j < g_config->channel_counts_in_files[i]; j++)
