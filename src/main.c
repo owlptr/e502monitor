@@ -288,10 +288,10 @@ int main(int argc, char** argv)
         // if need create new files store moment of
         // reading new block data
         // current_file_size += g_config->read_block_size / g_config->channel_count;
-        current_file_sizes += current_file_block_add;
+        // current_file_sizes += current_file_block_add;
         // current_file_size += read_block_size;
 
-        if( current_file_sizes >= total_file_sizes )
+        if( real_file_sizes + current_file_block_add>= total_file_sizes )
         {
             read_block_size = total_file_sizes - real_file_sizes;
             
