@@ -31,13 +31,14 @@ static struct timeval g_time_start; // time of start writing file
 static struct timeval g_time_end;   // time of finish writing file
 static struct timeval g_prev_time_start; // time start of previuos file
 
-// static FILE**   g_files = NULL; // files for stored data
-static SNDFILE**   g_files = NULL; // files for stored data
+// static FILE**      g_bin_files = NULL; // binary files for stored data
+static SNDFILE**   g_audio_files = NULL; // audio files for stored data
 static header   g_header; // header with information 
 static e502monitor_config*  g_config = NULL; // structure for configure
 static pdouble_queue* g_data_queue = NULL; // queue for stored data
 
-static char **g_old_file_names = NULL; // array of old file names
+// static char **g_old_bin_file_names = NULL; // array of old file names
+static char **g_old_audio_file_names = NULL; // array of old file names
 
 /*
     Creates stop event heandler for
@@ -217,11 +218,18 @@ int main(int argc, char** argv)
     double* data;
 
     // allocate memory for old files array
-    g_old_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
+    // g_old_bin_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
+    
+    // for(int i = 0; i < g_config->channel_count; i++)
+    // {
+    //     g_old_bin_file_names[i] = (char*)malloc(sizeof(char) * 101);
+    // }
+
+    g_old_audio_file_names = (char**)malloc(sizeof(char*) * g_config->channel_count);
     
     for(int i = 0; i < g_config->channel_count; i++)
     {
-        g_old_file_names[i] = (char*)malloc(sizeof(char) * 101);
+        g_old_audio_file_names[i] = (char*)malloc(sizeof(char) * 101);
     }
 
     logg("Создаю файлы");
@@ -231,7 +239,8 @@ int main(int argc, char** argv)
     // TODO: fix this function
     // clear_dir();
 
-    g_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
+    // g_bin_files = (FILE*)malloc(sizeof(FILE*)*g_config->channel_count);
+    g_audio_files = (SNDFILE*)malloc(sizeof(SNDFILE*)*g_config->channel_count);
 
     logg("Создаю отдельный поток для записи данных");
 
@@ -262,19 +271,19 @@ int main(int argc, char** argv)
 
     gettimeofday(&g_time_start, NULL);
     
-    // err = create_files(g_files,
+    // err = create_files(g_bin_files,
     //                    g_config->channel_count,
     //                    &g_time_start,
     //                    g_config->bin_dir,
     //                    g_config->channel_numbers,
-    //                    g_old_file_names);
+    //                    g_old_bin_file_names);
 
-    err = create_flac_files(g_files,
+    err = create_flac_files(g_audio_files,
                             g_config->files_count,
                             &g_time_start,
                             g_config->bin_dir,
                             g_config->channel_numbers,
-                            g_old_file_names,
+                            g_old_audio_file_names,
                             g_config->channel_counts_in_files,
                             g_config->adc_freq);
 
@@ -525,23 +534,21 @@ void* write_data(void *arg)
 
                 } else {
                     
-                    // fwrite(&data[data_cntr],
-                    //         sizeof(double),
-                    //         1,
-                    //         g_files[ch_cntr]);
-                    
                     flac_files_index = find_flac_file_index(ch_cntr);
 
                     add_data_in_frame(frames[flac_files_index], 
                                       data[data_cntr],
                                       g_config->channel_numbers[ch_cntr]);
+                    
                     if(is_frame_full(frames[flac_files_index]) == FRAME_FULL)
                     {
-                        sf_write_double(g_files[flac_files_index],
+                        sf_writef_float(g_audio_files[flac_files_index],
                                         frames[flac_files_index]->data,
-                                        frames[flac_files_index]->size);
+                                        1);
+
                         clear_frame(frames[flac_files_index]);
                     }
+                    
                 }
                 
 
@@ -550,15 +557,15 @@ void* write_data(void *arg)
             if(last_buffer_index == LAST_BUFFER)
             {
 
-                // close_files(g_files,
+                // close_files(g_bin_files,
                 //             g_config->bin_dir,
-                //             g_old_file_names,
+                //             g_old_bin_file_names,
                 //             g_config->channel_count,
                 //             &g_header,
                 //             g_config);
-                close_flac_files(g_files,
+                close_flac_files(g_audio_files,
                                 g_config->bin_dir,
-                                g_old_file_names,
+                                g_old_audio_file_names,
                                 g_config->files_count,
                                 &g_header,
                                 g_config);
@@ -567,19 +574,19 @@ void* write_data(void *arg)
                 // TODO: fix this function
                 // clear_dir();
 
-                // create_files(g_files,
+                // create_files(g_bin_files,
                 //              g_config->channel_count,
                 //              &g_time_start,
                 //              g_config->bin_dir,
                 //              g_config->channel_numbers,
-                //              g_old_file_names);
+                //              g_old_bin_file_names);
 
-                create_flac_files(g_files,
+                create_flac_files(g_audio_files,
                                   g_config->files_count,
                                   &g_time_start,
                                   g_config->bin_dir,
                                   g_config->channel_numbers,
-                                  g_old_file_names,
+                                  g_old_audio_file_names,
                                   g_config->channel_counts_in_files,
                                   g_config->adc_freq);
                 printf("Новые файлы созданы\n");
@@ -641,16 +648,16 @@ void* write_data(void *arg)
     // ------------------------------------------------------
 
     // close files
-    // close_files(g_files,
+    // close_files(g_bin_files,
     //             g_config->bin_dir,
-    //             g_old_file_names,
+    //             g_old_bin_file_names,
     //             g_config->channel_count,
     //             &g_header,
     //             g_config);
 
-    close_flac_files(g_files,
+    close_flac_files(g_audio_files,
                     g_config->bin_dir,
-                    g_old_file_names,
+                    g_old_audio_file_names,
                     g_config->files_count,
                     &g_header,
                     g_config);
@@ -699,12 +706,22 @@ void clear_dir()
 
 void free_global_memory()
 {
-    if( g_files != NULL )
+    // if( g_bin_files != NULL )
+    // {
+
+    //     logg("Особождаю память от заголовков файлов");
+
+    //     free(g_bin_files);
+
+    //     logg("Память от заголовков файлов освобождена");
+         
+    // }  
+        if( g_audio_files != NULL )
     {
 
         logg("Особождаю память от заголовков файлов");
 
-        free(g_files);
+        free(g_audio_files);
 
         logg("Память от заголовков файлов освобождена");
          
@@ -720,17 +737,34 @@ void free_global_memory()
         logg("Потокобезопасная очередь разрушена");        
     }
     
-    if( g_old_file_names != NULL )
+    // if( g_old_bin_file_names != NULL )
+    // {
+
+    //     logg("Особождаю память от массива старых имен файлов");
+        
+    //     for(int i = 0; i < g_config->channel_count; i++)
+    //     {
+    //         free(g_old_bin_file_names[i]);
+    //     }
+
+    //     free(g_old_bin_file_names);
+
+    //     logg("Память от массива старых имен файлов освобождена.\n");
+
+
+    // } 
+
+    if( g_old_audio_file_names != NULL )
     {
 
         logg("Особождаю память от массива старых имен файлов");
         
         for(int i = 0; i < g_config->channel_count; i++)
         {
-            free(g_old_file_names[i]);
+            free(g_old_audio_file_names[i]);
         }
 
-        free(g_old_file_names);
+        free(g_old_audio_file_names);
 
         logg("Память от массива старых имен файлов освобождена.\n");
 

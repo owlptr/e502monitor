@@ -3,7 +3,8 @@
 
 typedef struct
 {
-    double* data;
+    //double* data;
+    float* data;
     int* channels;
     int* full_channel_markers;
     int size;

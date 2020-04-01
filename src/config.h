@@ -32,7 +32,7 @@ typedef struct{
     int**     channel_distribution;     // Distribution of channel by files
     int       files_count;              // Count of files for writing
     int*      channel_counts_in_files;  // Count of channels in each flac file
-    
+    char**    channel_distribution_str; // Channel distribution in string
 } e502monitor_config;
 
 /*

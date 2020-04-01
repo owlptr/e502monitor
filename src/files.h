@@ -21,6 +21,13 @@
 
 #include <sndfile.h>
 
+typedef struct 
+{   
+    int samples_count;
+    char** channel_names; 
+    double freq_diviation; // in % 
+} file_prop;
+
 /*
     Create files for writing data on disk.
 
@@ -127,5 +134,10 @@ int is_need_clear_dir(char *path,
     Return error index.
 */
 int remove_days( char *path, char *current_day, int count );
+
+void create_prop_file(char** file_name,
+                      int    file_id,
+                      int    samples_count,
+                      e502monitor_config *config);
 
 #endif // FILES_H

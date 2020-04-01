@@ -189,7 +189,10 @@ int create_flac_files(SNDFILE **files,
         SF_INFO sfinfo;
 
         sfinfo.channels = channel_counts_in_files[i];
-        sfinfo.format = SF_FORMAT_FLAC | SF_FORMAT_PCM_16;
+        // sfinfo.frames = 0;
+        // sfinfo.sections = 0;
+        // sfinfo.seekable = 0;
+        sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_DOUBLE;
         sfinfo.samplerate = adc_freq;
 
         if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
@@ -467,4 +470,26 @@ int remove_days( char *path, char *current_day, int count )
     logg("Дни удалены");
 
     return E502M_ERR_OK;
+}
+
+void create_prop_file(char** file_name,
+                      int    file_id,
+                      int    samples_count,
+                      e502monitor_config *config)
+{
+    char prop_file_name[256];
+
+    strcpy(&prop_file_name, file_name);
+    strcpy(&prop_file_name, "/");
+    strcpy(&prop_file_name, config->bin_dir);
+    strcpy(&prop_file_name, ".prop");
+
+    FILE* prop_file = fopen(prop_file_name, "w");
+    
+    fprintf(prop_file, "samples_count = %n\n", samples_count);
+    fprintf(prop_file, "channel_names = %s\n", config->channel_distribution_str[file_id]);
+
+
+
+    fclose(prop_file_name);
 }

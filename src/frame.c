@@ -5,7 +5,7 @@ data_frame* create_frame(int frame_size, int* channels)
 {
     data_frame* dframe = (data_frame*)malloc(sizeof(data_frame));
 
-    dframe->data = (double*)malloc(sizeof(double)*frame_size);
+    dframe->data = (float*)malloc(sizeof(float)*frame_size);
 
     dframe->channels = (int*)malloc(sizeof(int)*frame_size);
     
@@ -49,7 +49,7 @@ void add_data_in_frame(data_frame* dframe, double data, int channel)
         }
     }
 
-    dframe->data[ch_index] = data;
+    dframe->data[ch_index] = (float)data;
     dframe->full_channel_markers[ch_index] = 1;
 }
 

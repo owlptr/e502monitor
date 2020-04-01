@@ -425,6 +425,30 @@ int init_config(e502monitor_config **config)
 
     }
 
+    // channel distribution in str
+
+    e502m_cfg->channel_distribution_str = (char**)malloc(sizeof(char*) * e502m_cfg->files_count);
+    
+    for(int i = 0; i < e502m_cfg->files_count; i++)
+    {
+        e502m_cfg->channel_distribution_str = (char*)malloc(sizeof(char) * 256);
+
+        strcpy(e502m_cfg->channel_distribution_str[i], "Channels = [\t");
+
+        char channles[256] = "";
+
+        for(int j = 0; j < e502m_cfg->channel_counts_in_files[i]; j++)
+        {
+            strcpy(e502m_cfg->channel_distribution_str[i], 
+                   e502m_cfg->channel_names[e502m_cfg->channel_distribution[i][j]]);
+
+            strcpy(e502m_cfg->channel_distribution_str[i], "\t");
+        }
+
+        strcpy(e502m_cfg->channel_distribution_str[i], "]");
+
+    }
+
 
     config_destroy(&cfg);    
 
