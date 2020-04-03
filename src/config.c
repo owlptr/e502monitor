@@ -431,22 +431,37 @@ int init_config(e502monitor_config **config)
     
     for(int i = 0; i < e502m_cfg->files_count; i++)
     {
-        e502m_cfg->channel_distribution_str = (char*)malloc(sizeof(char) * 256);
+        e502m_cfg->channel_distribution_str[i] = (char*)malloc(sizeof(char) * 256);
 
-        strcpy(e502m_cfg->channel_distribution_str[i], "Channels = [\t");
-
-        char channles[256] = "";
+        strcpy(e502m_cfg->channel_distribution_str[i], "[\t");
 
         for(int j = 0; j < e502m_cfg->channel_counts_in_files[i]; j++)
         {
-            strcpy(e502m_cfg->channel_distribution_str[i], 
-                   e502m_cfg->channel_names[e502m_cfg->channel_distribution[i][j]]);
+            char channel_number[10];
+            
+            sprintf(channel_number,
+                    "%d", e502m_cfg->channel_distribution[i][j]);
 
-            strcpy(e502m_cfg->channel_distribution_str[i], "\t");
+            strcat(e502m_cfg->channel_distribution_str[i], channel_number);
+
+            strcat(e502m_cfg->channel_distribution_str[i], ":");
+
+            // find channels name
+
+            for(int k = 0; k < e502m_cfg->channel_count; k++)
+            {
+                if(e502m_cfg->channel_distribution[i][j] == e502m_cfg->channel_numbers[k])
+                {
+                    strcat(e502m_cfg->channel_distribution_str[i], 
+                           e502m_cfg->channel_names[k]);
+                    
+                    strcat(e502m_cfg->channel_distribution_str[i], "\t");
+
+                }
+            }
         }
 
-        strcpy(e502m_cfg->channel_distribution_str[i], "]");
-
+        strcat(e502m_cfg->channel_distribution_str[i], "]");
     }
 
 

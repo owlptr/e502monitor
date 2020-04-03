@@ -15,9 +15,12 @@
 
 // The structure that stores header for output bin files.
 typedef struct {
-        int      year;                   // Year of creating bin file
-        int      month;                  // Month of creating bin file
-        int      day;                    // Day of start of the recording
+        int      start_year;              // Year of creating bin file
+        int      finish_year;
+        int      start_month;            // Month of creating bin file
+        int      finish_month;
+        int      start_day;                    // Day of start of the recording
+        int      finish_day;
         int      start_hour;             // Hour of start of the recording
         int      finish_hour;            // Hour of finish of the recording
         int      start_minut;            // Minut of start of the recording

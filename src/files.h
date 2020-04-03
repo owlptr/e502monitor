@@ -89,6 +89,7 @@ void close_flac_files(SNDFILE **files,
                       char* dir_name,
                       char** file_names,
                       int files_count,
+                      int* file_sizes,
                       header *hdr,
                       e502monitor_config *cfg);
 
@@ -135,9 +136,10 @@ int is_need_clear_dir(char *path,
 */
 int remove_days( char *path, char *current_day, int count );
 
-void create_prop_file(char** file_name,
-                      int    file_id,
-                      int    samples_count,
+void create_prop_file(char* file_name,
+                      int   file_id,
+                      int   samples_count,
+                      header* hdr,
                       e502monitor_config *config);
 
 #endif // FILES_H

@@ -173,7 +173,7 @@ int create_flac_files(SNDFILE **files,
         char file_name[500] = "";
         
         sprintf(file_name, 
-                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.flac",
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.wav",
                 dir_name,
                 1900 + ts->tm_year,
                 ts->tm_mon + 1,
@@ -197,7 +197,7 @@ int create_flac_files(SNDFILE **files,
 
         if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
         {
-            printf("ERROR: Не могу создат flac-файл!\n");
+            printf("ERROR: Не могу создат wav-файл!\n");
 
             return E502M_ERR;
         }
@@ -221,9 +221,9 @@ void close_files(FILE **files,
     sprintf(path_to_file,
             "%s/%d_%02d_%02d",
             dir_name,
-            hdr->year,
-            hdr->month,
-            hdr->day);
+            hdr->start_year,
+            hdr->start_month,
+            hdr->start_day);
 
     for(int i = 0; i < files_count; ++i)
     { 
@@ -250,9 +250,9 @@ void close_files(FILE **files,
         sprintf(new_file_name, 
                 "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
                 path_to_file,
-                hdr->year,
-                hdr->month,
-                hdr->day,
+                hdr->start_year,
+                hdr->start_month,
+                hdr->start_day,
                 hdr->start_hour,
                 hdr->start_minut,
                 hdr->start_second,
@@ -279,6 +279,7 @@ void close_flac_files(SNDFILE **files,
                       char* dir_name,
                       char** file_names,
                       int files_count,
+                      int* file_sizes,
                       header *hdr,
                       e502monitor_config *cfg)
 {
@@ -290,9 +291,9 @@ void close_flac_files(SNDFILE **files,
     sprintf(path_to_file,
             "%s/%d_%02d_%02d",
             dir_name,
-            hdr->year,
-            hdr->month,
-            hdr->day);
+            hdr->start_year,
+            hdr->start_month,
+            hdr->start_day);
 
     for(int i = 0; i < files_count; ++i)
     {   
@@ -304,11 +305,11 @@ void close_flac_files(SNDFILE **files,
         // rename files (for correcting start time)
 
         sprintf(new_file_name, 
-                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.flac",
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.wav",
                 path_to_file,
-                hdr->year,
-                hdr->month,
-                hdr->day,
+                hdr->start_year,
+                hdr->start_month,
+                hdr->start_day,
                 hdr->start_hour,
                 hdr->start_minut,
                 hdr->start_second,
@@ -323,6 +324,8 @@ void close_flac_files(SNDFILE **files,
         logg(log_msg);
 
         rename(file_names[i], new_file_name);
+
+        create_prop_file(file_names[i], i, file_sizes[i], hdr, cfg);
     }
 }
 
@@ -472,24 +475,45 @@ int remove_days( char *path, char *current_day, int count )
     return E502M_ERR_OK;
 }
 
-void create_prop_file(char** file_name,
+void create_prop_file(char* file_name,
                       int    file_id,
                       int    samples_count,
+                      header* hdr, 
                       e502monitor_config *config)
 {
     char prop_file_name[256];
 
-    strcpy(&prop_file_name, file_name);
-    strcpy(&prop_file_name, "/");
-    strcpy(&prop_file_name, config->bin_dir);
-    strcpy(&prop_file_name, ".prop");
-
+    strcpy(prop_file_name, file_name);
+    // strcpy(&prop_file_name, "/");
+    // strcpy(&prop_file_name, config->bin_dir);
+    strcat(prop_file_name, ".prop");
+    printf("%s\n", prop_file_name);
     FILE* prop_file = fopen(prop_file_name, "w");
     
-    fprintf(prop_file, "samples_count = %n\n", samples_count);
-    fprintf(prop_file, "channel_names = %s\n", config->channel_distribution_str[file_id]);
+    fprintf(prop_file, "start_time=%d.%02d.%02d %02d:%02d:%02d:%d\n", 
+            hdr->start_year, 
+            hdr->start_month,
+            hdr->start_day,
+            hdr->start_hour,
+            hdr->start_minut,
+            hdr->start_second,
+            hdr->start_usecond);
 
 
 
-    fclose(prop_file_name);
+    fprintf(prop_file, "finish_time=%d.%02d.%02d %02d:%02d:%02d:%d\n", 
+            hdr->finish_year, 
+            hdr->finish_month,
+            hdr->finish_day,
+            hdr->finish_hour,
+            hdr->finish_minut,
+            hdr->finish_second,
+            hdr->finish_usecond);
+
+    fprintf(prop_file, "samples_count=%d\n", samples_count);
+    fprintf(prop_file, "channel_names=%s\n", config->channel_distribution_str[file_id]);
+
+
+
+    fclose(prop_file);
 }

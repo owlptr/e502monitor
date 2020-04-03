@@ -357,9 +357,9 @@ int main(int argc, char** argv)
             // ts = gmtime(&g_time_start.tv_sec);
             ts = gmtime(&g_prev_time_start.tv_sec);
 
-            g_header.year               = 1900 + ts->tm_year;
-            g_header.month              = ts->tm_mon + 1;
-            g_header.day                = ts->tm_mday;
+            g_header.start_year         = 1900 + ts->tm_year;
+            g_header.start_month        = ts->tm_mon + 1;
+            g_header.start_day          = ts->tm_mday;
             g_header.start_hour         = ts->tm_hour;
             g_header.start_minut        = ts->tm_min;
             g_header.start_second       = ts->tm_sec;
@@ -367,6 +367,9 @@ int main(int argc, char** argv)
             
             ts = gmtime(&g_time_end.tv_sec);
             
+            g_header.finish_year        = 1900 + ts->tm_year;
+            g_header.finish_month       = ts->tm_mon + 1;
+            g_header.finish_day         = ts->tm_mday;
             g_header.finish_hour        = ts->tm_hour;
             g_header.finish_minut       = ts->tm_min;
             g_header.finish_second      = ts->tm_sec;
@@ -471,6 +474,12 @@ void create_stop_event_handler()
 
 void* write_data(void *arg)
 {
+    int* real_file_sizes = (int*)malloc(sizeof(int) * g_config->files_count);
+    for(int i = 0; i < g_config->files_count; i++)
+    {
+        real_file_sizes[i] = 0;
+    }
+
     int* file_sizes = (int*)malloc(sizeof(int) * g_config->channel_count);
     int* fill_index_files = (int*)malloc(sizeof(int) * g_config->channel_count);
     
@@ -542,6 +551,8 @@ void* write_data(void *arg)
                     
                     if(is_frame_full(frames[flac_files_index]) == FRAME_FULL)
                     {
+                        real_file_sizes[flac_files_index] ++;
+
                         sf_writef_float(g_audio_files[flac_files_index],
                                         frames[flac_files_index]->data,
                                         1);
@@ -567,6 +578,7 @@ void* write_data(void *arg)
                                 g_config->bin_dir,
                                 g_old_audio_file_names,
                                 g_config->files_count,
+                                real_file_sizes,
                                 &g_header,
                                 g_config);
 
@@ -590,6 +602,11 @@ void* write_data(void *arg)
                                   g_config->channel_counts_in_files,
                                   g_config->adc_freq);
                 printf("Новые файлы созданы\n");
+
+                for(int i = 0; i < g_config->files_count; i++)
+                {
+                    real_file_sizes[i] = 0;
+                }
             }
             
             free(data);   
@@ -598,7 +615,55 @@ void* write_data(void *arg)
         }
     }    
 
+    // initialize time in header
+
+    gettimeofday(&g_time_start, NULL);
+    gettimeofday(&g_time_end, NULL);
+
+    // initialize time fields in header ---------------------
+    struct tm *ts;
+            
+    // ts = gmtime(&g_time_start.tv_sec);
+    ts = gmtime(&g_prev_time_start.tv_sec);
+
+    g_header.start_year         = 1900 + ts->tm_year;
+    g_header.start_month        = ts->tm_mon + 1;
+    g_header.start_day          = ts->tm_mday;
+    g_header.start_hour         = ts->tm_hour;
+    g_header.start_minut        = ts->tm_min;
+    g_header.start_second       = ts->tm_sec;
+    g_header.start_usecond      = (int)g_time_start.tv_usec;
+            
+    ts = gmtime(&g_time_end.tv_sec);
+
+    g_header.finish_year         = 1900 + ts->tm_year;
+    g_header.finish_month        = ts->tm_mon + 1;
+    g_header.finish_day          = ts->tm_mday;
+    g_header.finish_hour        = ts->tm_hour;
+    g_header.finish_minut       = ts->tm_min;
+    g_header.finish_second      = ts->tm_sec;
+    g_header.finish_usecond     = (int)g_time_start.tv_usec;
+    // ------------------------------------------------------
+
+    // close files
+    // close_files(g_bin_files,
+    //             g_config->bin_dir,
+    //             g_old_bin_file_names,
+    //             g_config->channel_count,
+    //             &g_header,
+    //             g_config);
+
+    close_flac_files(g_audio_files,
+                    g_config->bin_dir,
+                    g_old_audio_file_names,
+                    g_config->files_count,
+                    real_file_sizes,
+                    &g_header,
+                    g_config);
+
+
     free(file_sizes);
+    free(real_file_sizes);
     free(fill_index_files);
     free(rest_buffer_sizes);
 
@@ -619,48 +684,6 @@ void* write_data(void *arg)
 
     
     free(frames);
-
-    // initialize time in header
-
-    gettimeofday(&g_time_start, NULL);
-    gettimeofday(&g_time_end, NULL);
-
-    // initialize time fields in header ---------------------
-    struct tm *ts;
-            
-    // ts = gmtime(&g_time_start.tv_sec);
-    ts = gmtime(&g_prev_time_start.tv_sec);
-
-    g_header.year               = 1900 + ts->tm_year;
-    g_header.month              = ts->tm_mon + 1;
-    g_header.day                = ts->tm_mday;
-    g_header.start_hour         = ts->tm_hour;
-    g_header.start_minut        = ts->tm_min;
-    g_header.start_second       = ts->tm_sec;
-    g_header.start_usecond      = (int)g_time_start.tv_usec;
-            
-    ts = gmtime(&g_time_end.tv_sec);
-            
-    g_header.finish_hour        = ts->tm_hour;
-    g_header.finish_minut       = ts->tm_min;
-    g_header.finish_second      = ts->tm_sec;
-    g_header.finish_usecond     = (int)g_time_start.tv_usec;
-    // ------------------------------------------------------
-
-    // close files
-    // close_files(g_bin_files,
-    //             g_config->bin_dir,
-    //             g_old_bin_file_names,
-    //             g_config->channel_count,
-    //             &g_header,
-    //             g_config);
-
-    close_flac_files(g_audio_files,
-                    g_config->bin_dir,
-                    g_old_audio_file_names,
-                    g_config->files_count,
-                    &g_header,
-                    g_config);
 
 }
 
