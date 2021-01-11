@@ -89,13 +89,21 @@ int create_default_config()
         "# Количество дней, которые будут сохраняться.\n",
         "# Например, если  count_of_day = 3, то будут сохраняться\n",
         "# два последних дня + текущий\n",
-        "count_of_day = 3 \n"
+        "count_of_day = 3 \n",
+        "\n",
+        "# Распределение каналов по flac-файлам.\n"
+        "channel_distribution = ([1,2],[3,4])\n"
+
     };
 
 
     FILE *cfg_default_file = fopen(path_to_config, "w");
 
-    if(!cfg_default_file){ return E502M_ERR; }
+    if(!cfg_default_file)
+    { 
+        printf("create_default_confgig: Не могу открыть файл конфига для записи!\n");
+        return E502M_ERR; 
+    }
 
     for(int i = 0; i < (int)sizeof(default_config) / sizeof(char *); i++)
     {
@@ -157,6 +165,7 @@ int init_config(e502monitor_config **config)
             if( !config_read_file(&cfg, path_to_config) )
             {
                 printf("Ошибка при открытиии конфигурационного файла по-умолчанию\n");
+                fprintf(stderr, "%s=%d\n", config_error_file(&cfg),config_error_line(&cfg),config_error_text(&cfg));
                 return E502M_ERR;
             }
         } else {
@@ -380,6 +389,82 @@ int init_config(e502monitor_config **config)
         strcpy(e502m_cfg->channel_names[i], config_setting_get_string_elem(channel_names, i));
     }
 
+    config_setting_t* ch_dist = config_lookup(&cfg, "channel_distribution");
+
+    if(ch_dist == NULL)
+    {
+        printf("Ошибка конфигурационного файла:\t "
+               "распределение каналов по файлам не задано\n");
+        
+        config_destroy(&cfg);
+        return E502M_ERR;
+    }
+
+    size = config_setting_length(ch_dist);
+
+    e502m_cfg->channel_distribution = (int**)malloc(sizeof(int*)*size);
+    e502m_cfg->channel_counts_in_files = (int*)malloc(sizeof(int)*size);
+    e502m_cfg->files_count = size;
+
+    for(int i = 0; i < size; i++)
+    {
+        config_setting_t* file_dist = config_setting_get_elem(ch_dist, i);
+
+        int inner_size = config_setting_length(file_dist);
+
+        e502m_cfg->channel_distribution[i] = (int*)malloc(sizeof(int)*inner_size);
+
+        e502m_cfg->channel_counts_in_files[i] = inner_size;
+
+        for(int j = 0; j < inner_size; j++)
+        {
+            // printf("%d\n", config_setting_get_int_elem(flac_file_cfg, j));
+            e502m_cfg->channel_distribution[i][j] = config_setting_get_int_elem(file_dist, j);
+            // printf("%d\n", config_setting_get_int_elem(flac_file_cfg, j));
+        }
+
+    }
+
+    // channel distribution in str
+
+    e502m_cfg->channel_distribution_str = (char**)malloc(sizeof(char*) * e502m_cfg->files_count);
+    
+    for(int i = 0; i < e502m_cfg->files_count; i++)
+    {
+        e502m_cfg->channel_distribution_str[i] = (char*)malloc(sizeof(char) * 256);
+
+        strcpy(e502m_cfg->channel_distribution_str[i], "[\t");
+
+        for(int j = 0; j < e502m_cfg->channel_counts_in_files[i]; j++)
+        {
+            char channel_number[10];
+            
+            sprintf(channel_number,
+                    "%d", e502m_cfg->channel_distribution[i][j]);
+
+            strcat(e502m_cfg->channel_distribution_str[i], channel_number);
+
+            strcat(e502m_cfg->channel_distribution_str[i], ":");
+
+            // find channels name
+
+            for(int k = 0; k < e502m_cfg->channel_count; k++)
+            {
+                if(e502m_cfg->channel_distribution[i][j] == e502m_cfg->channel_numbers[k])
+                {
+                    strcat(e502m_cfg->channel_distribution_str[i], 
+                           e502m_cfg->channel_names[k]);
+                    
+                    strcat(e502m_cfg->channel_distribution_str[i], "\t");
+
+                }
+            }
+        }
+
+        strcat(e502m_cfg->channel_distribution_str[i], "]");
+    }
+
+
     config_destroy(&cfg);    
 
     return E502M_ERR_OK;
@@ -394,22 +479,23 @@ void print_config(e502monitor_config *config)
     printf(" Размер файлов (в секундах)\t\t\t\t:%d\n", config->file_size);
     printf(" Таймаут перед считываением блока (мс)\t\t\t:%d\n", config->read_timeout);
     printf(" Количество сохраняемых дней\t\t\t\t:%d\n", config->stored_days_count);
+    printf(" Количество файлов:\t\t\t\t\t:%d\n", config->files_count);
     printf(" Номера используемых каналов\t\t\t\t:[ ");
-    for(int i = 0; i<config->channel_count; i++)
+    for(int i = 0; i < config->channel_count; i++)
     {
         printf("%d ", config->channel_numbers[i]);
     }
     printf("]\n");
 
     printf(" Режимы измерения каналов\t\t\t\t:[ ");
-    for(int i = 0; i<config->channel_count; i++)
+    for(int i = 0; i < config->channel_count; i++)
     {
         printf("%d ", config->channel_modes[i]);
     }
     printf("]\n");
 
     printf(" Диапазоны измерения каналов\t\t\t\t:[ ");
-    for(int i = 0; i<config->channel_count; i++)
+    for(int i = 0; i < config->channel_count; i++)
     {
         printf("%d ", config->channel_ranges[i]);
     }
@@ -420,9 +506,21 @@ void print_config(e502monitor_config *config)
     printf(" Текущее место работы\t\t\t\t\t:%s\n", config->place);
     
     printf(" Названия используемых каналов\t\t\t\t:[ ");
-    for(int i = 0; i<config->channel_count; ++i)
+    for(int i = 0; i < config->channel_count; ++i)
     {
         printf("%s ", config->channel_names[i]);
+    }
+    printf("]\n");
+
+    printf(" Распределение каналов по файлам\t\t\t:[");
+    for(int i = 0; i < config->files_count; i++)
+    {   
+        printf(" (");
+        for(int j = 0; j < config->channel_counts_in_files[i]; j++)
+        {
+            printf(" %d ", config->channel_distribution[i][j]);
+        }
+        printf(") ");
     }
     printf("]\n\n");
 }
@@ -433,10 +531,12 @@ e502monitor_config* create_config()
 
     if(config == NULL){ return NULL; } 
 
-    config->channel_numbers = NULL;
-    config->channel_modes   = NULL;
-    config->channel_ranges  = NULL;
-    config->channel_names   = NULL;
+    config->channel_numbers         = NULL;
+    config->channel_modes           = NULL;
+    config->channel_ranges          = NULL;
+    config->channel_names           = NULL;
+    config->channel_distribution    = NULL;
+    config->channel_counts_in_files = NULL;
 
     return config;
 }
@@ -446,7 +546,26 @@ void destroy_config(e502monitor_config **config)
     if( (*config)->channel_numbers != NULL ){free( (*config)->channel_numbers);}
     if( (*config)->channel_modes   != NULL ){free( (*config)->channel_modes);}
     if( (*config)->channel_ranges  != NULL ){free( (*config)->channel_ranges);}
-    if( (*config)->channel_names   != NULL ){free( (*config)->channel_names);}
+    
+    if( (*config)->channel_names   != NULL )
+    {
+        for( int i = 0; i < (*config)->channel_count; i++ )
+        {
+            free((*config)->channel_names[i]);
+        }
+
+        free( (*config)->channel_names);
+    }
+
+    if( (*config)->channel_distribution != NULL )
+    {
+        for( int i = 0; i < (*config)->files_count; i++)
+        {
+            free((*config)->channel_distribution[i]);
+        }
+
+        free((*config)->channel_distribution);
+    }
 
     free( (*config) ) ;
 }

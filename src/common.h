@@ -21,4 +21,6 @@
 
 #define VERSION "0.8"
 
+#define MAX_FREQUENCY 2000000
+
 #endif // COMMON_H

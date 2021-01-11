@@ -17,6 +17,44 @@
 #include <dirent.h>
 #include <string.h>
 
+int prepare_output_directory(char* path,
+                             struct tm* start_time,
+                             char* dir_name)
+{
+    sprintf(dir_name,
+            "%s/%d_%02d_%02d",
+            path,
+            1900 + start_time->tm_year,
+            start_time->tm_mon + 1,
+            start_time->tm_mday);
+
+    struct stat st = {0};
+
+    if( stat(dir_name, &st) == -1 ) // if directory not exist
+    {
+
+        char log_msg[500] = "";
+
+        sprintf(log_msg, "Директория: %s недоступна. Создаю", dir_name);
+
+        logg(log_msg);
+
+        if( mkdir(dir_name, 0700) != 0) 
+        {
+            printf("Не могу создать директорию для выходных фалов.\n"
+                    "Ошибка в пути? Нет прав на запись?\n");
+
+            logg("Не могу создать директорию для выходных фалов. "
+                 "Ошибка в пути? Нет прав на запись?");
+
+            return E502M_ERR;
+        }
+    }
+
+
+    return E502M_ERR_OK;
+}
+
 int create_files(FILE **files,
                  int files_count,
                  struct timeval* start_time,
@@ -29,7 +67,8 @@ int create_files(FILE **files,
     ts = gmtime(&start_time->tv_sec);
 
     char dir_name[100] = "";
-
+    
+    /* 
     sprintf(dir_name,
             "%s/%d_%02d_%02d",
             path,
@@ -58,6 +97,12 @@ int create_files(FILE **files,
 
             return E502M_ERR;
         }
+    }
+    */
+
+    if( prepare_output_directory(path, ts, dir_name) != E502M_ERR_OK )
+    {
+        return E502M_ERR;
     }
 
     char log_msg[500]  = "";
@@ -96,6 +141,73 @@ int create_files(FILE **files,
     return E502M_ERR_OK;
 }
 
+int create_flac_files(SNDFILE **files,
+                      int files_count,
+                      struct timeval* start_time,
+                      char* path,
+                      int* channel_numbers,
+                      char** stored_file_names,
+                      int* channel_counts_in_files,
+                      double adc_freq)
+{
+    printf("Начинаю создавать flac-файлы.\n");
+    struct tm *ts; // time of start recording
+
+    ts = gmtime(&start_time->tv_sec);
+
+    char dir_name[100] = "";
+
+    if( prepare_output_directory(path, ts, dir_name) != E502M_ERR_OK )
+    {
+        return E502M_ERR;
+    }
+
+    char log_msg[500]  = "";
+
+    sprintf(log_msg, "Создаю файлы в директории: %s", dir_name); 
+    logg(log_msg);
+
+    for( int i = 0; i < files_count; i++ )
+    {
+
+        char file_name[500] = "";
+        
+        sprintf(file_name, 
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.wav",
+                dir_name,
+                1900 + ts->tm_year,
+                ts->tm_mon + 1,
+                ts->tm_mday,
+                ts->tm_hour,
+                ts->tm_min,
+                ts->tm_sec,
+                (int)start_time->tv_usec,
+                i);
+
+        strcpy(stored_file_names[i], file_name);
+
+        SF_INFO sfinfo;
+
+        sfinfo.channels = channel_counts_in_files[i];
+        // sfinfo.frames = 0;
+        // sfinfo.sections = 0;
+        // sfinfo.seekable = 0;
+        sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_DOUBLE;
+        sfinfo.samplerate = adc_freq;
+
+        if( !(files[i] = sf_open(file_name, SFM_WRITE, &sfinfo)) )
+        {
+            printf("ERROR: Не могу создат wav-файл!\n");
+
+            return E502M_ERR;
+        }
+    }
+
+    printf("Файлы успешно созданы\n");
+
+    return E502M_ERR_OK;
+}
+
 void close_files(FILE **files,
                  char* dir_name,
                  char** file_names,
@@ -103,18 +215,15 @@ void close_files(FILE **files,
                  header *hdr,
                  e502monitor_config *cfg)
 {
-
-    logg("Заканчиваю запись файлов");
-
     char new_file_name[500] = "";
     char path_to_file[500] = "";
 
     sprintf(path_to_file,
             "%s/%d_%02d_%02d",
             dir_name,
-            hdr->year,
-            hdr->month,
-            hdr->day);
+            hdr->start_year,
+            hdr->start_month,
+            hdr->start_day);
 
     for(int i = 0; i < files_count; ++i)
     { 
@@ -141,9 +250,9 @@ void close_files(FILE **files,
         sprintf(new_file_name, 
                 "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d",
                 path_to_file,
-                hdr->year,
-                hdr->month,
-                hdr->day,
+                hdr->start_year,
+                hdr->start_month,
+                hdr->start_day,
                 hdr->start_hour,
                 hdr->start_minut,
                 hdr->start_second,
@@ -158,11 +267,66 @@ void close_files(FILE **files,
         logg(log_msg);
 
         rename(file_names[i], new_file_name);
+
     }
 
 
     logg("Файлы записаны");
 
+}
+
+void close_flac_files(SNDFILE **files,
+                      char* dir_name,
+                      char** file_names,
+                      int files_count,
+                      int* file_sizes,
+                      header *hdr,
+                      e502monitor_config *cfg)
+{
+    logg("Заканчиваю запись файлов");
+
+    char new_file_name[500] = "";
+    char path_to_file[500] = "";
+
+    sprintf(path_to_file,
+            "%s/%d_%02d_%02d",
+            dir_name,
+            hdr->start_year,
+            hdr->start_month,
+            hdr->start_day);
+
+    for(int i = 0; i < files_count; ++i)
+    {   
+        sf_close(files[i]);
+
+        // set NULL as marker
+        files[i] = NULL;
+
+        // rename files (for correcting start time)
+
+        sprintf(new_file_name, 
+                "%s/%d_%02d_%02d_%02d-%02d-%02d-%06d_%d.wav",
+                path_to_file,
+                hdr->start_year,
+                hdr->start_month,
+                hdr->start_day,
+                hdr->start_hour,
+                hdr->start_minut,
+                hdr->start_second,
+                (int)hdr->start_usecond,
+                i);
+        
+        char log_msg[500] = "";
+
+        sprintf(log_msg, 
+                "Переименовываю файл <%s> на <%s>",
+                file_names[i], new_file_name);
+        logg(log_msg);
+
+        rename(file_names[i], new_file_name);
+
+        create_prop_file(file_names[i], i, file_sizes[i], hdr, cfg);
+    }
 }
 
 int remove_day(char *path)
@@ -309,4 +473,47 @@ int remove_days( char *path, char *current_day, int count )
     logg("Дни удалены");
 
     return E502M_ERR_OK;
+}
+
+void create_prop_file(char* file_name,
+                      int    file_id,
+                      int    samples_count,
+                      header* hdr, 
+                      e502monitor_config *config)
+{
+    char prop_file_name[256];
+
+    strcpy(prop_file_name, file_name);
+    // strcpy(&prop_file_name, "/");
+    // strcpy(&prop_file_name, config->bin_dir);
+    strcat(prop_file_name, ".prop");
+    printf("%s\n", prop_file_name);
+    FILE* prop_file = fopen(prop_file_name, "w");
+    
+    fprintf(prop_file, "start_time=%d.%02d.%02d %02d:%02d:%02d:%d\n", 
+            hdr->start_year, 
+            hdr->start_month,
+            hdr->start_day,
+            hdr->start_hour,
+            hdr->start_minut,
+            hdr->start_second,
+            hdr->start_usecond);
+
+
+
+    fprintf(prop_file, "finish_time=%d.%02d.%02d %02d:%02d:%02d:%d\n", 
+            hdr->finish_year, 
+            hdr->finish_month,
+            hdr->finish_day,
+            hdr->finish_hour,
+            hdr->finish_minut,
+            hdr->finish_second,
+            hdr->finish_usecond);
+
+    fprintf(prop_file, "samples_count=%d\n", samples_count);
+    fprintf(prop_file, "channel_names=%s\n", config->channel_distribution_str[file_id]);
+
+
+
+    fclose(prop_file);
 }
